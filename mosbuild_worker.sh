@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# moOde OS Image Builder (C) 2017 koda59
+# moOde OS Image Builder (C) 2017 Koda59
 #
 # This Program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2017-12-03 TC adapted koda59 original script
+# 2017-12-08 TC adapted Koda59 original script
 #
 
 VER="v1.0"
