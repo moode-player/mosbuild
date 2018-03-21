@@ -15,10 +15,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2017-12-08 TC adapted Koda59 original script
+# 2017-12-08 TC 	v1.0 adapted Koda59 original script
+# 2017-12-17 Koda59 v1.1
+# - fix USB Multi-Port Hub ( Extend test in getTargetUsb for multi devices to select device from parts )
+# - fix Multi language in freespace test
+# - fix possibly write test failed
+# 2017-12-20 Koda59 v2.0 add method without USB SD Card reader (All from cuurent SD - fresh Raspbian)
+# 2017-12-23 Koda59 v2.1 no changes on mosbuild.sh, only at mosbuild_worker.sh for powering on Act LED during build
+# 2017-12-24 Koda59 v2.11
+# - add total time to build to the mosbuild.log
+# - add auto config SSID & PSK for the wifi if already configured
+# - add aliase commands to monitor build process
+# 2018-01-19 TC 	v2.2 simplified and adapted
 #
-
-VER="v1.0"
+      
+VER="v2.2"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment
@@ -53,7 +64,10 @@ cancelBuild () {
 	if [ $? -ne 0 ] ; then
 		rm -rf ./mosbuild 2> /dev/null
 	fi
-	cleanUp
+    rm -f mosbuild.properties 2> /dev/null
+	rm -f mosbuild_worker.sh 2> /dev/null
+	rm -f mosbuild_befor_usb.txt 2> /dev/null
+	rm -f mosbuild_after_usb.txt 2> /dev/null
 	exit 1
 }
 
@@ -65,28 +79,68 @@ mainBanner () {
 	echo "**  Welcome to the automated process for creating the wonderful"
 	echo "**  custom Linux OS that runs moOde audio player."
 	echo "**"
-	echo "**  You will need a Raspberry Pi running Raspbian with SSH"
-	echo "**  enabled, at least 2.5GB free space on the boot SDCard and"
-	echo "**  a spare USB or USB-SDCard drive that the new OS will be"
-	echo "**  written to during the build process."
+	echo "**  1. You will need a Raspberry Pi running Raspbian with SSH"
+	echo "**  enabled and at least 2.5 GB free space on the boot SDCard."
 	echo "**"
-	echo "**  Be sure to backup the SDCard used to boot your Pi"
+	echo "**  2. The build can be written directly to the boot SDCard or"
+	echo "**  to a second SDCard plugged into the Raspberry Pi using a"
+	echo "**  USB-SDCard drive."
+	echo "**"
+	echo "**  WARNING: Raspbian Stretch Lite 2017-11-29 must be used if"
+	echo "**  building directly on the boot SDCard. It must be a fresh,"
+	echo "**  unmodified installation of Stretch Lite otherwise the build"
+	echo "**  results cannot be guaranteed."
+	echo "**"
+	echo "**  Be sure to backup the SDCard used to boot your Pi!"
 	echo "**"
 	echo "****************************************************************"
 	echo
+    readYnInput "** Write OS build directly to the boot SDCard (y/n)? "
+	if [ $YN = "y" ] ; then
+		DIRECT="y"
+	fi
+}
+
+#
+# direct build
+#
+directYBanner () {  
+	echo  
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
-	echo "// STEP 1 - Download Raspbian Lite and create a new, base image"
+	echo "// STEP 1 - Writing OS build to boot SDCard"
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
-	testDiskSpace
 	readYnInput "** Do you have a backup of your boot SDCard (y/n)? "
 	if [ $YN = "n" ] ; then
 		cancelBuild
 	fi
-	echo "** Unplug all USB storage devices from the Pi"
+}
+
+#
+# non-direct build
+#
+directNBanner () {
+	echo   
+	echo "////////////////////////////////////////////////////////////////"
+	echo "//"
+	echo "// STEP 1 - Writing OS build to second SDCard"
+	echo "//"
+	echo "////////////////////////////////////////////////////////////////"
+	echo
+
+    testDiskSpace
+	readYnInput "** Do you have a backup of your boot SDCard (y/n)? "
+	if [ $YN = "n" ] ; then
+		cancelBuild
+	fi
+	echo "** USB-SDCard device detection:"
+	echo
+	echo "   Accurately detecting the USB SDCard drive first requires"
+	echo "   that all USB storage devices are unplugged from the Pi"
+	echo
 	readYnInput "** Are all USB storage devices unplugged (y/n)? "
 	if [ $YN = "n" ] ; then
 		cancelBuild
@@ -95,7 +149,7 @@ mainBanner () {
 
 testDiskSpace () {
 	echo "** Check free disk space"
-	FREESPACE="$(df -k . | grep -v Available |  awk '{print $4}')"
+    FREESPACE="$(df -k . --output=avail | tail -1)"
 	if [ $FREESPACE -lt 2500000 ] ; then
 		cancelBuild "** Error: Not enough free space on boot SDCard: 2.5GB required"
 	else
@@ -115,7 +169,9 @@ testUnzip () {
 
 getTargetUsb () {
 	ls -tr /dev/disk/by-id 2> /dev/null | sort > mosbuild_befor_usb.txt
-	echo "** Plug in target USB drive for the new OS"
+	echo
+	echo "   Now plug in the target USB SDCard drive"
+	echo
 	readYnInput "** Is target USB drive plugged in (y/n)? "
 	if [ $YN = "n" ] ; then
 		cancelBuild
@@ -144,7 +200,7 @@ getTargetUsb () {
 		cd - > /dev/null 2>&1
 	fi
 
-	if [ -z "$USBDEV" ] ; then
+	if [ -z "$USBDEV" ] || [ `echo "$USBDEV" | wc -w` -gt 1 ] ; then
 		# its odd to have no device so lets try to derive it from a partition
 		USBDEV=`echo $DEVPARTS | awk -F" " '{print $1}' | head -c -2`
 	else
@@ -177,27 +233,43 @@ getTargetUsb () {
 }
 
 getOptions () {
-	NUMOPT=5
+	echo "** Options configuration:"
+	echo
+	echo "   There are only two build options that can be configured. The"
+	echo "   1st is Proxy Server. Set it to 'n' unless you are certain that"
+	echo "   your network requires proxied access to the Internet. The 2nd"
+	echo "   is WiFi connection. For maximum speed and reliability set this"
+	echo "   to 'n' and use an Ethernet connection"
+	echo
+	NUMOPT=2
 	IDXOPT=1
 	proxyServer
 	useWireless
-	squashFs
-	latestKernel
-	addlComponents
+	#squashFs
+	#latestKernel
+	#addlComponents
+
+	# if the var does not exist then = n
+	#SQUASH_FS=y
+	LATEST_KERNEL=y
+	ADDL_COMPONENTS=y
 }
     
 confirmBuild () {
-	echo "** Ready for automated image build"
-	readYnInput "** Proceed (y/n)? "
+	echo "** Configuration complete:"
+	echo
+	echo "The Builder has completed the configuration and is now ready"
+	echo "to proceed with the image build"
+	echo
+	readYnInput "** Proceed with build (y/n)? "
 	if [ $YN = "n" ] ; then
 		cancelBuild
 	fi
 }
 
-#
-# BEGIN OPTIONS
-#
-
+##//////////////////////////////////////////////////////////////
+## BEGIN OPTIONS
+##//////////////////////////////////////////////////////////////
 proxyServer () {
 	readYnInput "** Option $((IDXOPT++))-$NUMOPT: use a proxy server for Internet access (y/n)? "
 	if [ $YN = "y" ] ; then
@@ -206,16 +278,35 @@ proxyServer () {
 		HTTP_PROXY="$STR"
 		HTTPS_PROXY="$STR"
 	fi
-}  
+}
+isConnected () {
+	# ping gateway address if one exists
+	ping -q -w 1 -c 1 `ip r | grep default | cut -d ' ' -f 3` > /dev/null 2> /dev/null && return 0 || return 1
+}
+configWireless() {
+	readStrInput "** SSID: "
+	SSID="$STR"
+	readStrInput "** Password: "
+	PSK="$STR"
+}
 useWireless () {
 	readYnInput "** Option $((IDXOPT++))-$NUMOPT: use a WiFi connection instead of Ethernet (y/n)? "
 	if [ $YN = "y" ] ; then
-		readStrInput "** SSID: "
-		SSID="$STR"
-		readStrInput "** Password: "
-		PSK="$STR"
+		if isConnected && [ -f /etc/wpa_supplicant/wpa_supplicant.conf ] ; then
+			SSID=`awk '(/^/||/ /) && /ssid=\"/' /etc/wpa_supplicant/wpa_supplicant.conf | sed -e 's/^[ \t]*//;s/ssid=\"\(.*\)\"/\1/'`
+			PSK=`awk '(/^/||/ /) && /psk=\"/' /etc/wpa_supplicant/wpa_supplicant.conf | sed -e 's/^[ \t]*//;s/psk=\"\(.*\)\"/\1/'`
+			echo "** You are already connected via WiFi with these settings:"
+			echo "** SSID: $SSID"
+			echo "** Password : $PSK"
+			readYnInput "** Use these settings (y/n)? "
+			if [ $YN = "n" ] ; then
+				configWireless
+			fi
+		else
+			configWireless
+		fi
 	fi
-}  
+}
 squashFs () {
 	readYnInput "** Option $((IDXOPT++))-$NUMOPT: configure /var/www as squashfs (y/n)? "
 	if [ $YN = "y" ] ; then
@@ -235,9 +326,9 @@ addlComponents () {
 		ADDL_COMPONENTS=$YN
 	fi
 }
-#
-# END OPTIONS
-#
+##//////////////////////////////////////////////////////////////
+## END OPTIONS
+##//////////////////////////////////////////////////////////////
 
 testInternet () {
 	echo "** Test Internet connection"
@@ -270,13 +361,15 @@ dnldHelpers () {
 
 updProperties () {
 	echo "** Add options to properties file"
+	echo "START_TIME=$(date +%s)" >> mosbuild.properties
+	
 	if [ ! -z "$HTTP_PROXY" ] ; then
 		echo "export http_proxy=$HTTP_PROXY" >> mosbuild.properties
 		echo "export https_proxy=$HTTPS_PROXY" >> mosbuild.properties
 	fi
 	if [ ! -z "$SSID" ] ; then
-		echo "SSID=$SSID" >> mosbuild.properties
-		echo "PSK=$PSK" >> mosbuild.properties
+		echo "SSID=\"$SSID\"" >> mosbuild.properties
+		echo "PSK=\"$PSK\"" >> mosbuild.properties
 	fi
 	if [ ! -z "$SQUASH_FS" ] ; then
 		echo "SQUASH_FS=$SQUASH_FS" >> mosbuild.properties
@@ -287,8 +380,10 @@ updProperties () {
 	if [ ! -z "$ADDL_COMPONENTS" ] ; then
 		echo "ADDL_COMPONENTS=$ADDL_COMPONENTS" >> mosbuild.properties
 	fi
+    if [ ! -z "$DIRECT" ] ; then
+        echo "DIRECT=$DIRECT" >> mosbuild.properties
+    fi
 }
-
 loadEnv () {
 	echo "** Load properties into env"
 	local MOSBUILD_PROP=mosbuild.properties
@@ -350,8 +445,15 @@ mountImage () {
 
 modifyImage () {
 	echo "** Modify image"
-	touch part1/ssh
-	echo "** Enable SSH"
+
+	if [ -z "$DIRECT" ] ; then
+		touch part1/ssh
+		echo "** Enable SSH"
+	else
+		# symlnk these so same code can be used
+		ln -s /boot /home/pi/part1
+		ln -s / /home/pi/part2
+	fi
 
 	if [ ! -z "$SSID" ] ; then
 		echo "#########################################" > part1/wpa_supplicant.conf
@@ -372,8 +474,8 @@ modifyImage () {
 
 	sed -i "s/init=.*//" part1/cmdline.txt
 	sed -i "s/quiet.*//" part1/cmdline.txt
-	rm part2/etc/init.d/resize2fs_once
-	rm part2/etc/rc3.d/S01resize2fs_once
+	rm part2/etc/init.d/resize2fs_once 2> /dev/null
+	rm part2/etc/rc3.d/S01resize2fs_once 2> /dev/null
 	echo "** Remove auto-resize task"
 
 	sed -i "s/^/net.ifnames=0 /" part1/cmdline.txt
@@ -396,6 +498,19 @@ modifyImage () {
 	sed -i "s/raspberrypi/moode/" part2/etc/hosts
 	cp /etc/fake-hwclock.data part2/etc/ 2> /dev/null
 	echo "** Change host name to moode"
+    
+    echo "alias moslog=\"tail -f ~/mosbuild.log\"" >> part2$MOSBUILD_DIR/../.bash_aliases
+    echo "alias mosbrief=\"cat ~/mosbuild.log | grep 'COMPONENT\|STEP\|Compile \| END\|Error'\"" >> part2$MOSBUILD_DIR/../.bash_aliases
+    echo "alias moslast=\"tail -25 ~/mosbuild.log\"" >> part2$MOSBUILD_DIR/../.bash_aliases
+    chown 1000.1000 part2$MOSBUILD_DIR/../.bash_aliases
+    echo "** Add alias commands for monitoring the build"
+
+	# remove symlinks if indicated
+	if [ -v DIRECT ] ; then
+		rm part1
+		rm part2
+	fi
+    
 	echo "** Flush cached disk writes"
 	sync
 }
@@ -412,18 +527,25 @@ umountImage () {
 writeImage () { 
 	echo "** Write image to USB drive on $USBDEV"
 	dd if=mosbuild/$RASPBIAN_IMG of=$USBDEV
-	echo "** Flush cached disk writes"
-	sync
 	if [ $? -eq 0 ] ; then
+    	echo "** Flush cached disk writes"
+	    sync
 		echo "**"
-		echo "** New base OS image created"
-		echo "**"
-		echo "** Remove the USB drive and use it to boot a Raspberry Pi"
-		echo "** The build will automatically continue at STEP 2 after boot"
-		echo "**"
+		echo "** Base OS image created on second USB SDCard drive"
+		echo
+		echo "Remove the USB SDCard drive and use the SDCard to boot a Pi"
+		echo "The build will automatically continue at STEP 2 after boot"
+		echo "It can take around 1 hour to complete"
+		echo "Use cmds: mosbrief, moslog and moslast to monitor the process"
+		echo
 		readYnInput "** Save base OS img for additional builds (y/n)? "
 		if [ $YN = "n" ] ; then
 			rm -rf mosbuild* 2> /dev/null
+		else
+			echo
+			echo "NOTE: The saved image will become out of date when newer"
+			echo "versions of mosbuild or moOde audio player are released"
+			echo
 		fi
 	else
 		cancelBuild "** Error: Image write failed"
@@ -433,9 +555,25 @@ writeImage () {
 cleanUp () {
 	rm -f mosbuild.properties 2> /dev/null
 	rm -f mosbuild_worker.sh 2> /dev/null
-	rm -f mosbuild_worker.sh 2> /dev/null
 	rm -f mosbuild_befor_usb.txt
 	rm -f mosbuild_after_usb.txt
+
+	if [ -z "$DIRECT" ] ; then 
+		return
+	else
+		echo "**"
+		echo "** Base OS image created on boot SDCard"
+		echo
+		echo "Pi must be powered off then back on"
+		echo "The build will automatically continue at STEP 2 after boot"
+		echo "It can take around 1 hour to complete"
+		echo "Use cmds: mosbrief, moslog and moslast to monitor the process"
+		echo
+		readYnInput "** Power off the Pi (y/n)? "
+		if [ $YN = "y" ] ; then
+			poweroff
+		fi
+	fi
 }
 
 ##//////////////////////////////////////////////////////////////
@@ -445,30 +583,39 @@ cleanUp () {
 ##//////////////////////////////////////////////////////////////
 
 mainBanner
-testUnzip
-getTargetUsb
+if [ -z "$DIRECT" ] ; then 
+	directNBanner
+	testUnzip
+	getTargetUsb
+else
+	directYBanner
+fi
 getOptions
 confirmBuild
 testInternet
 dnldHelpers
 updProperties
 loadEnv
-# check if img already exist
-if [ -f mosbuild/$RASPBIAN_IMG ] ; then
-	echo "** Base OS image was saved from previous build"
-	readYnInput "** Use saved image to write to USB drive (y/n)? "
-	if [ $YN = "y" ] ; then
-		writeImage
-		cleanUp
-		exit 0
+if [ -z "$DIRECT" ] ; then
+	# check if img already exist
+	if [ -f mosbuild/$RASPBIAN_IMG ] ; then
+		echo "** Base OS image was saved from previous build"
+		readYnInput "** Use saved image to write to USB drive (y/n)? "
+		if [ $YN = "y" ] ; then
+			writeImage
+			cleanUp
+			exit 0
+		fi
 	fi
+	dnldRaspbian
+	unzipRaspbian
+	mountImage
+	modifyImage
+	umountImage
+	writeImage
+else 
+	modifyImage
 fi
-dnldRaspbian
-unzipRaspbian
-mountImage
-modifyImage
-umountImage
-writeImage
 cleanUp
 exit 0
 

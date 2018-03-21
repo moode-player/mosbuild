@@ -15,10 +15,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2017-12-08 TC adapted Koda59 original script
+# 2017-12-08 TC		v1.0 adapted Koda59 original script
+# 2017-12-17 Koda59 v1.1
+# - fix waitForRc time when apt command just after
+# - fix force apt-get using IPv4 when proxy set (apt issue)
+# 2017-12-20 Koda59 v2.0 add method without USB SD Card reader (all from cuurent SD - fresh Raspbian)
+# 2017-12-23 Koda59 v2.1 take control of Act LED during build 
+# 2017-12-24 Koda59 v2.11
+# - add total time to build to the mosbuild.log
+# - don't clean mosbuild directory in cancelBuild to enable resume after reboot
+# 2018-01-19 TC		v2.2
+# - simplified and adapted
+# - split COMP_C1_C9 into C1_C7 folowwed by C8_C9 because of repo fails in C8
+# - use single squeezelite binary in COMPONENT 5
+# - reset dir permissions for var local in STEP 8
 #
-
-VER="v1.0"
+ 
+VER="v2.2"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -34,10 +47,17 @@ cancelBuild () {
 	if [ $# -gt 0 ] ; then
 		echo "$1"
 	fi
-	echo "** Image build cancelled"
-	cd /home/pi
-	rm -rf mosbuild 2> /dev/null
-	rm -f *.zip 2> /dev/null
+	echo "** Error: image build exited"
+	echo "** Error: reboot to resume the build"
+#	cd /home/pi
+#	rm -rf mosbuild 2> /dev/null
+#	rm -f *.zip 2> /dev/null
+    #### Power off Act LED
+    echo 0 >/sys/class/leds/led0/brightness
+    sleep 1
+    #### Now we are going reset to default control ACT LED
+    echo mmc0 >/sys/class/leds/led0/trigger
+    sleep 1
 	exit 1
 }
 
@@ -53,14 +73,24 @@ loadProperties () {
 STEP_2 () {
 	waitForRc 10
 	cd $MOSBUILD_DIR
-
-	echo
-	echo "////////////////////////////////////////////////////////////////"
-	echo "//"
-	echo "// STEP 2 - Expand the root partition to 3GB"
-	echo "//"
-	echo "////////////////////////////////////////////////////////////////"
-	echo
+    
+    if [ -z "$DIRECT" ] ; then
+	  echo
+	  echo "////////////////////////////////////////////////////////////////"
+	  echo "//"
+	  echo "// STEP 2 - Expand the root partition to 3GB"
+	  echo "//"
+	  echo "////////////////////////////////////////////////////////////////"
+	  echo
+    else 
+      echo "////////////////////////////////////////////////////////////////"
+	  echo "//"
+	  echo "// STEP 2 - Direct build so no need to expand Root partition"
+	  echo "//"
+	  echo "////////////////////////////////////////////////////////////////"
+	  echo
+      sed -i "s/raspberry.*//" /etc/hosts
+    fi    
 
 	local MOODE_REL_ZIP=`echo $MOODE_REL | awk -F"/" '{ print $NF }'`
 
@@ -83,16 +113,21 @@ STEP_2 () {
 	fi 
 	rm -f $MOODE_REL_ZIP
 
-	echo "** Expand SDCard to 3GB"
-	cp ./rel-stretch/www/command/resizefs.sh ./
-	chmod 0755 resizefs.sh
-	sed -i "/PART_END=/c\PART_END=+3000M" ./resizefs.sh
-	./resizefs.sh start
+    if [ -z "$DIRECT" ] || [ `df -k --output=size / | tail -1` -lt 2500000 ] ; then
+	  echo "** Expand SDCard to 3GB"
+	  cp ./rel-stretch/www/command/resizefs.sh ./
+	  chmod 0755 resizefs.sh
+	  sed -i "/PART_END=/c\PART_END=+3000M" ./resizefs.sh
+	  ./resizefs.sh start
+    fi
 
 	echo "** Install boot/config.txt"
 	cp ./rel-stretch/boot/config.txt.default /boot/config.txt
-	echo "** Cleanup"
-	rm -f resizefs.sh
+
+    if [ -z "$DIRECT" ] ; then
+	  echo "** Cleanup"
+	  rm -f resizefs.sh
+    fi
 
 	echo "** Reboot 1"
 	echo "3A" > $MOSBUILD_STEP
@@ -101,7 +136,7 @@ STEP_2 () {
 }
 
 STEP_3A () {
-	waitForRc 10
+	waitForRc 30
 	cd $MOSBUILD_DIR
 
 	echo
@@ -128,6 +163,7 @@ STEP_3A () {
 	else
 		echo "** Configuring proxy for Internet access"
 		echo "Acquire::http::Proxy \"$http_proxy\";" > /etc/apt/apt.conf.d/10proxy
+        echo "Acquire::ForceIPv4 \"true\";" > /etc/apt/apt.conf.d/99force-ipv4      
 	fi
 
 	echo "** Update Raspbian package list"
@@ -149,7 +185,7 @@ STEP_3A () {
 }
 
 STEP_3B_4 () {
-	waitForRc 10
+	waitForRc 30
 	cd $MOSBUILD_DIR
 
 	echo
@@ -166,7 +202,7 @@ STEP_3B_4 () {
 		samba smbclient udisks-glue ntfs-3g exfat-fuse git inotify-tools libav-tools avahi-utils
 
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error:: Install failed"
+		cancelBuild "** Error: Install failed"
 	fi													 
 
 	echo "** Disable shellinabox"
@@ -183,7 +219,7 @@ STEP_3B_4 () {
 	echo "** Install Host AP Mode packages"
 	DEBIAN_FRONTEND=noninteractive apt-get -y install dnsmasq hostapd
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi
 
 	echo "** Disable hostapd and dnsmasq services"
@@ -197,7 +233,7 @@ STEP_3B_4 () {
 		libusb-dev libglib2.0-dev libudev-dev libical-dev libreadline-dev libsbc1 libsbc-dev
 	
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi
 
 	echo "** Compile bluez-alsa"
@@ -345,7 +381,7 @@ STEP_5_6 () {
 		libmpdclient-dev libavahi-client-dev libsystemd-dev \
 		libwrap0-dev libboost-dev libicu-dev libglib2.0-dev
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi 
 
 	# Check for binary
@@ -402,7 +438,7 @@ STEP_5_6 () {
 	
 		make install
 		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Install failed"
+			cancelBuild "** Error: install failed"
 		fi
 	
 		strip --strip-unneeded /usr/local/bin/mpd
@@ -473,7 +509,7 @@ STEP_7_8 () {
 
 	echo "** Create misc files"
 	cp ./rel-stretch/mpd/sticker.sql /var/lib/mpd
-	cp -r "./rel-stretch/other/sdcard/Stereo Test/" /var/lib/mpd/music/SDCARD
+	cp -r "./rel-stretch/other/sdcard/Stereo Test/" /var/lib/mpd/music/SDCARD/
 	cp ./rel-stretch/network/interfaces.default /etc/network/interfaces
 	cp ./rel-stretch/network/dhcpcd.conf.default /etc/dhcpcd.conf
 	cp ./rel-stretch/network/hostapd.conf.default /etc/hostapd/hostapd.conf
@@ -516,7 +552,7 @@ STEP_7_8 () {
 	cp -r ./rel-stretch/var/* /var
 	cp -r ./rel-stretch/www/* /var/www
 	chmod 0755 /var/www/command/*
-	/var/www/command/util.sh "emerald" "2ecc71" "27ae60"
+	/var/www/command/util.sh emerald "27ae60" "rgba(39,174,96,0.71)"
 	sqlite3 /var/local/www/db/moode-sqlite3.db "update cfg_system set value='Emerald' where param='themecolor'"
 
 	echo "** Establish permissions for service files"
@@ -542,12 +578,15 @@ STEP_7_8 () {
 	systemctl disable rotenc.service
 
 	echo "** Binaries will not have been installed yet, but let's disable the services here"
-	chmod 0644 /lib/systemd/system/squeezelite-armv6l.service
-	chmod 0644 /lib/systemd/system/squeezelite-armv7l.service
-	systemctl disable squeezelite-armv6l
-	systemctl disable squeezelite-armv7l
+	chmod 0644 /lib/systemd/system/squeezelite.service
+	systemctl disable squeezelite
 	chmod 0644 /lib/systemd/system/upmpdcli.service
 	systemctl disable upmpdcli.service
+
+	echo "** Reset dir permissions for var local"
+	chmod -R 0755 /var/local/www
+	chmod -R 0777 /var/local/www/db
+	chmod -R ug-s /var/local/www
 
 	echo "** Initial permissions for certain files. These also get set during moOde Worker startup"
 	chmod 0777 /var/local/www/playhistory.log
@@ -638,7 +677,7 @@ STEP_9_10 () {
 }
 
 STEP_11 () {
-	waitForRc 10
+	waitForRc 30
 	cd $MOSBUILD_DIR
 
 	if [ -z "$LATEST_KERNEL" ] ; then
@@ -656,7 +695,7 @@ STEP_11 () {
 		echo "** Download and installing latest Linux kernel"
 		PRUNE_MODULES=1 rpi-update
 		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Rpi-update failed"
+			cancelBuild "** Error: rpi-update failed"
 		else
 			echo "** Cleanup"
 		    rm -rf /lib/modules.bak
@@ -688,10 +727,9 @@ STEP_12_13 () {
 	echo "c. Menu, Configure, Sources, UPDATE mpd database"
 	echo "d. Menu, Audio, Mpd options, EDIT SETTINGS, APPLY"
 	echo "e. Menu, System, Set timezone"
-	echo "f. Clear system logs, YES"
-	echo "g. Compact sqlite database, YES"
+	echo "f. Clear system logs"
+	echo "g. Compact sqlite database"
 	echo "h. Keyboard"
-	echo "i. Layout"
 	echo
 	echo "2. Verification"
 	echo
@@ -714,7 +752,7 @@ STEP_12_13 () {
 	echo
 	echo "NOTE: Run these commands one at a time."
 	echo
-	echo "If the message "There are differences between boot sector and its backup" appears,"
+	echo "If the message 'There are differences between boot sector and its backup' appears,"
 	echo "enter 1 'Copy original to backup', then y to 'Perform changes ?'"
 	echo
 	echo "sudo umount /boot"
@@ -741,15 +779,15 @@ STEP_12_13 () {
 		finalCleanup
 	else
 		echo "** Reboot 8"
-		echo "C1_C9" > $MOSBUILD_STEP
+		echo "C1_C7" > $MOSBUILD_STEP
 		echo "** Reboot"
 		sync
 		reboot
 	fi
  }
 
-COMP_C1_C9 () {
-	waitForRc 10
+COMP_C1_C7 () {
+	waitForRc 30
 	cd $MOSBUILD_DIR
 
 	echo
@@ -771,7 +809,7 @@ COMP_C1_C9 () {
 	echo "** Install MiniDLNA package"
 	DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install minidlna
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi
 
 	echo "** Disable MiniDLNA service"
@@ -783,7 +821,7 @@ COMP_C1_C9 () {
 	echo "** Install Djmount package"
 	DEBIAN_FRONTEND=noninteractive apt-get -y install djmount
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi
 
 	echo
@@ -858,7 +896,7 @@ COMP_C1_C9 () {
 	DEBIAN_FRONTEND=noninteractive apt-get -y install autoconf libtool libdaemon-dev libasound2-dev libpopt-dev libconfig-dev \
 		avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi
 
 	# Check for binary
@@ -886,7 +924,7 @@ COMP_C1_C9 () {
 	
 		make install
 		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Install failed"
+			cancelBuild "** Error: install failed"
 		fi
 	
 		echo "** Disable shairport-sync service"
@@ -914,11 +952,8 @@ COMP_C1_C9 () {
 
 	cd $MOSBUILD_DIR
 
-	echo "** Install pre-compiled binaries"
-	echo "** Install armv6l bin"
-	cp ./rel-stretch/other/squeezelite/$SL_BIN6 /usr/local/bin/squeezelite-armv6l
-	echo "** Install armv7l bin"
-	cp ./rel-stretch/other/squeezelite/$SL_BIN7 /usr/local/bin/squeezelite-armv7l
+	echo "** Install pre-compiled binary"
+	cp ./rel-stretch/other/squeezelite/$SL_BIN /usr/local/bin/squeezelite
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -934,7 +969,7 @@ COMP_C1_C9 () {
 	DEBIAN_FRONTEND=noninteractive apt-get -y install libmicrohttpd-dev libexpat1-dev \
 	libxml2-dev libxslt1-dev libjsoncpp-dev python-requests python-pip
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi
 
 	echo "** Compile Libupnp jfd5"
@@ -954,14 +989,13 @@ COMP_C1_C9 () {
 	fi
 	make install
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi
 	echo "** Cleanup"
 	cd ..
 	rm -rf ./libupnp-1.6.20.jfd5
 	rm libupnp-1.6.20.jfd5.tar.gz
 	
-
 	echo "** Compile Libupnpp"	
 	cp ./rel-stretch/other/upmpdcli/libupnpp-0.16.0.tar.gz ./
 	tar xfz ./libupnpp-0.16.0.tar.gz
@@ -979,7 +1013,7 @@ COMP_C1_C9 () {
 	fi
 	make install
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi
 	echo "** Cleanup"
 	cd ..
@@ -1003,7 +1037,7 @@ COMP_C1_C9 () {
 	fi
 	make install
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi
 	echo "** Cleanup"
 	cd ..
@@ -1038,7 +1072,7 @@ COMP_C1_C9 () {
 	fi
 	make install
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi
 
 	echo "** Cleanup"
@@ -1061,6 +1095,17 @@ COMP_C1_C9 () {
 	echo "If its not installed, the Google Play section in UPnP config screen will not be present."
 	echo "sudo pip install gmusicapi"
 
+	echo "** Reboot 9"
+	echo "C8_C9" > $MOSBUILD_STEP
+	echo "** Reboot"
+	sync
+	reboot
+}
+
+COMP_C8_C9 () {
+	waitForRc 30
+	cd $MOSBUILD_DIR
+
 	echo
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
@@ -1069,12 +1114,10 @@ COMP_C1_C9 () {
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
-	cd $MOSBUILD_DIR
-
 	echo "** Install Local UI packages"
 	DEBIAN_FRONTEND=noninteractive apt-get -y install xinit xorg lsb-release xserver-xorg-legacy chromium-browser libgtk-3-0
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
+		cancelBuild "** Error: install failed"
 	fi
 
 	echo "** Permissions and service config"
@@ -1096,10 +1139,8 @@ COMP_C1_C9 () {
 	echo
 	echo "a. Connect a keyboard."
 	echo "b. Press Ctrl-t to open a separate instance of Chrome Browser."
-	echo "c. For Raspberry Pi 7" Touch Display open Chrome settings and set the zoom to 75%.""
-	echo "d. Optionally, enter url chome://extensions and install the xontab virtual keyboard extension."
-	echo "e. Enter url chrome://flags and scroll down to Overlay Scrollbars and enable the setting."
-	echo
+	echo "c. Enter url chrome://flags and scroll down to Overlay Scrollbars and enable the setting."
+	echo "d. Optionally, enter url chrome://extensions and install the xontab virtual keyboard extension."
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -1154,6 +1195,11 @@ finalCleanup () {
 
 	TIMESTAMP=$(date)
 	echo "** "$TIMESTAMP
+	STOP_TIME=$(date +%s)
+	INSTALLING_TIME=$(($STOP_TIME - $START_TIME))
+	INSTALLING_TIME=$(date -u -d @$INSTALLING_TIME +"%T")
+	TIMESTAMP=$(date)
+	echo "** Installation time : $INSTALLING_TIME"
 	echo
 	echo "////////////////////////////////////////////////////////////////"
 	echo "// END"
@@ -1169,6 +1215,13 @@ finalCleanup () {
 ## MAIN
 ##
 ##//////////////////////////////////////////////////////////////
+
+#### Now we are going to control ACT LED
+echo none > /sys/class/leds/led0/trigger
+sleep 1
+#### Power on Act LED
+echo 1 > /sys/class/leds/led0/brightness
+sleep 1
 
 loadProperties
 
@@ -1198,13 +1251,23 @@ case $STEP in
 	12-13)
 		STEP_12_13
 		;;
-	C1_C9)
-		COMP_C1_C9
+	C1_C7)
+		COMP_C1_C7
+		;;
+	C8_C9)
+		COMP_C8_C9
 		;;
 	*)
 		echo "** Error: should never arrive at case = *"
 		;;
 esac
+
+#### Power off Act LED
+echo 0 > /sys/class/leds/led0/brightness
+sleep 1
+#### Now we are going reset to default control ACT LED
+echo mmc0 >/sys/class/leds/led0/trigger
+sleep 1
 
 exit 0
 
