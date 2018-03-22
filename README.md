@@ -16,8 +16,8 @@ If using the direct build method then boot a Raspberry Pi running Raspbian Stret
 
 Connect to the Pi via SSH and then run the commands listed below.
 ```
-cd /home/pi<br>
-sudo wget -q http://moodeaudio.org/downloads/mos/mosbuild.sh -O /home/pi/mosbuild.sh<br>
+cd /home/pi
+sudo wget -q http://moodeaudio.org/downloads/mos/mosbuild.sh -O /home/pi/mosbuild.sh
 sudo chmod +x /home/pi/mosbuild.sh
 ```
 ## Start the Builder
@@ -26,7 +26,7 @@ sudo ./mosbuild.sh
 ```
 Follow the instructions and prompts that will appear. The Build runs in two stages. The first stage prepares the SDCard with the files and configuration necessary for the second stage which is where the majority of the OS Build process takes place.
 
-## After the first stage of the Build conpletes
+## After the first stage of the Build
 
 When the first stage of the Build has completed one of two completion banners will be printed depending on which build method was choosen in the beginning. Follow the instructions in the completion banner to start the second stage of the Build.
 
@@ -34,9 +34,9 @@ When the first stage of the Build has completed one of two completion banners wi
 ```
 ** Base OS image created on second USB SDCard drive
 
-Remove the USB SDCard drive and use the SDCard to boot a Pi.\
-The build will automatically continue at STEP 2 after boot.\
-It can take around 1 hour to complete.\
+Remove the USB SDCard drive and use the SDCard to boot a Pi.
+The build will automatically continue at STEP 2 after boot.
+It can take around 1 hour to complete.
 
 Use cmds: mosbrief, moslog and moslast to monitor the process.
 
@@ -46,9 +46,9 @@ Use cmds: mosbrief, moslog and moslast to monitor the process.
 ```
 ** Base OS image created on boot SDCard
 
-Pi must be powered off then back on.\
-The build will automatically continue at STEP 2 after power on.\
-It can take around 1 hour to complete.\
+Pi must be powered off then back on.
+The build will automatically continue at STEP 2 after power on.
+It can take around 1 hour to complete.
 
 Use cmds: mosbrief, moslog and moslast to monitor the process.
 
@@ -72,9 +72,9 @@ Sometimes when the source code reposiories are busy they will refuse connections
 ## Verifying a successful Build
 
 The Build is successful when the last line of the Build log is:
-
+```
 // END
-
+```
 ## Other Resources
 [moodeaudio.org](http://moodeaudio.org)\
 [moOde Twitter feed](http://twitter.com/MoodeAudio)\
