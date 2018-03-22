@@ -58,9 +58,9 @@ Use cmds: mosbrief, moslog and moslast to monitor the process.
 
 A log file is maintained during the Build and can be monitored via SSH using the commands below.
 ```
-- mosbrief - Prints only the Build log section headers
-- moslog - Prints each line of the Build log in real-time
-- moslast - Prints only the last few lines of the Build log
+- mosbrief&nbsp;&nbsp;&nbsp;Prints only the Build log section headers
+- moslog&nbsp;&nbsp;&nbsp;&nbspPrints each line of the Build log in real-time
+- moslast&nbsp;&nbsp;&nbsp;Prints only the last few lines of the Build log
 ```
 Periodivcally monitor the build process for an error block in the build log that indicates the Build has exited (stopped) and can be resumed. In this case simply reboot the pi and the Build will resume at the beginning of the section that contained the error. 
 ```
