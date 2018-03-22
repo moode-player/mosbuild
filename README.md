@@ -33,14 +33,14 @@ The Build is successful when the last line of the Build log is:
 
 # Build requirements
 
-If using the Direct build method then boot a Raspberry Pi running Raspbian Stretch Lite release 2017-11-29. No other release is guaranteed to work. If using a second USB-SDCard for the Build then make sure its not plugged into the Pi prior to starting the Build.
+If using the direct build method then boot a Raspberry Pi running Raspbian Stretch Lite release 2017-11-29. No other release is guaranteed to work. If using a second USB-SDCard for the Build then make sure its not plugged into the Pi prior to starting the Build.
 
 ## Download the Builder script
 
 Connect to the Pi via SSH and then run the commands listed below.
 
-cd /home/pi
-sudo wget -q http://moodeaudio.org/downloads/mos/mosbuild.sh -O /home/pi/mosbuild.sh
+cd /home/pi<br>
+sudo wget -q http://moodeaudio.org/downloads/mos/mosbuild.sh -O /home/pi/mosbuild.sh<br>
 sudo chmod +x /home/pi/mosbuild.sh
 
 ## Start the Builder
@@ -57,9 +57,9 @@ When the first stage of the Build has completed one of two completion banners wi
 
 ** Base OS image created on second USB SDCard drive
 
-Remove the USB SDCard drive and use the SDCard to boot a Pi.
-The build will automatically continue at STEP 2 after boot.
-It can take around 1 hour to complete.
+Remove the USB SDCard drive and use the SDCard to boot a Pi.\
+The build will automatically continue at STEP 2 after boot.\
+It can take around 1 hour to complete.\
 
 Use cmds: mosbrief, moslog and moslast to monitor the process.
 
@@ -69,9 +69,9 @@ Use cmds: mosbrief, moslog and moslast to monitor the process.
 
 ** Base OS image created on boot SDCard
 
-Pi must be powered off then back on.
-The build will automatically continue at STEP 2 after power on.
-It can take around 1 hour to complete.
+Pi must be powered off then back on.\
+The build will automatically continue at STEP 2 after power on.\
+It can take around 1 hour to complete.\
 
 Use cmds: mosbrief, moslog and moslast to monitor the process.
 
