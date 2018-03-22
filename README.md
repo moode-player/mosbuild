@@ -8,11 +8,6 @@ A typical Build takes around 1 hour and during that time the Pi will automatical
 
 @Koda59 © 2017
 
-## Other Resources
-[moodeaudio.org](http://moodeaudio.org)\
-[moOde Twitter feed](http://twitter.com/MoodeAudio)\
-[Contributors](https://github.com/moode-player/moode/blob/master/www/CONTRIBS.html)
-
 # Build requirements
 
 If using the direct build method then boot a Raspberry Pi running Raspbian Stretch Lite release 2017-11-29. No other release is guaranteed to work. If using a second USB-SDCard for the Build then make sure its not plugged into the Pi prior to starting the Build.
@@ -20,15 +15,15 @@ If using the direct build method then boot a Raspberry Pi running Raspbian Stret
 ## Download the Builder script
 
 Connect to the Pi via SSH and then run the commands listed below.
-
+```
 cd /home/pi<br>
 sudo wget -q http://moodeaudio.org/downloads/mos/mosbuild.sh -O /home/pi/mosbuild.sh<br>
 sudo chmod +x /home/pi/mosbuild.sh
-
+```
 ## Start the Builder
-
+```
 sudo ./mosbuild.sh
-
+```
 Follow the instructions and prompts that will appear. The Build runs in two stages. The first stage prepares the SDCard with the files and configuration necessary for the second stage which is where the majority of the OS Build process takes place.
 
 ## After the first stage of the Build conpletes
@@ -36,7 +31,7 @@ Follow the instructions and prompts that will appear. The Build runs in two stag
 When the first stage of the Build has completed one of two completion banners will be printed depending on which build method was choosen in the beginning. Follow the instructions in the completion banner to start the second stage of the Build.
 
 ### USB-SDCard method
-
+```
 ** Base OS image created on second USB SDCard drive
 
 Remove the USB SDCard drive and use the SDCard to boot a Pi.\
@@ -46,9 +41,9 @@ It can take around 1 hour to complete.\
 Use cmds: mosbrief, moslog and moslast to monitor the process.
 
 ** Save base OS img for additional builds (y/n)? 
-
+```
 ### Direct build method
-
+```
 ** Base OS image created on boot SDCard
 
 Pi must be powered off then back on.\
@@ -58,20 +53,20 @@ It can take around 1 hour to complete.\
 Use cmds: mosbrief, moslog and moslast to monitor the process.
 
 ** Power off the Pi (y/n)? 
-
+```
 ## During the second stage of the Build
 
 A log file is maintained during the Build and can be monitored via SSH using the commands below.
-
-- mosbrief	Prints only the Build log section headers
-- moslog	Prints each line of the Build log in real-time
-- moslast	Prints only the last few lines of the Build log
-
+```
+- mosbrief - Prints only the Build log section headers
+- moslog - Prints each line of the Build log in real-time
+- moslast - Prints only the last few lines of the Build log
+```
 Periodivcally monitor the build process for an error block in the build log that indicates the Build has exited (stopped) and can be resumed. In this case simply reboot the pi and the Build will resume at the beginning of the section that contained the error. 
-
+```
 ** Error: image build exited
 ** Error: reboot to resume the build
-
+```
 Sometimes when the source code reposiories are busy they will refuse connections. This is the most common cause of errors in the build process. The build may have to be resumed multiple times.
 
 ## Verifying a successful Build
@@ -79,3 +74,8 @@ Sometimes when the source code reposiories are busy they will refuse connections
 The Build is successful when the last line of the Build log is:
 
 // END
+
+## Other Resources
+[moodeaudio.org](http://moodeaudio.org)\
+[moOde Twitter feed](http://twitter.com/MoodeAudio)\
+[Contributors](https://github.com/moode-player/moode/blob/master/www/CONTRIBS.html)
