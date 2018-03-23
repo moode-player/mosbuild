@@ -62,7 +62,7 @@ mosbrief  Prints only the section headers
 moslog    Prints each line in real-time
 moslast   Prints only the last few lines
 ```
-Periodivcally monitor the build process for an error block in the build log that indicates the Build has exited (stopped) and can be resumed. In this case simply reboot the pi and the Build will resume at the beginning of the section that contained the error. 
+Periodically monitor the build process for an error block in the build log that indicates the Build has exited (stopped) and can be resumed. In this case simply reboot the pi and the Build will resume at the beginning of the section that contained the error. 
 ```
 ** Error: image build exited
 ** Error: reboot to resume the build
