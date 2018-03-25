@@ -56,7 +56,7 @@ Use cmds: mosbrief, moslog and moslast to monitor the process.
 ```
 ## During the second stage of the Build
 
-A log file is maintained during the Build and can be monitored via SSH using the commands below.
+A log file is maintained during the Build and can be monitored via SSH using the commands below. Use pi/moodeaudio as the userid/password for SSH login.
 ```
 mosbrief  Prints only the section headers
 moslog    Prints each line in real-time
