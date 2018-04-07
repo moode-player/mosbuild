@@ -27,13 +27,20 @@
 # - add auto config SSID & PSK for the wifi if already configured
 # - add aliase commands to monitor build process
 # 2018-01-19 TC 	v2.2 simplified and adapted
+# 2018-04-02 TC 	v2.4
+# - sync with Build Recipe ver
+# - add date entry prompt for direct build
+# - use >> to fix echo "country=" > part1/wpa_supplicant.conf
+# - update completion banners
+# - chg wifi country from GB to US
+# - create new etc/rc.local that unblocks wifi
 #
       
-VER="v2.2"
+VER="v2.4"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment
-[[ $EUID -ne 0 ]] && { echo "You must use sudo to run the Image Builder" ; exit 1 ; } ;
+[[ $EUID -ne 0 ]] && { echo "You must use sudo to run the OS Builder" ; exit 1 ; } ;
 
 readYnInput () {
 	while true; do
@@ -58,7 +65,7 @@ cancelBuild () {
 	if [ $# -gt 0 ] ; then
 		echo "$1"
 	fi
-	echo "** Image build cancelled"
+	echo "** OS build cancelled"
 	ls mosbuild/*.img > /dev/null 2>&1
 	# if no image files present remove the dir
 	if [ $? -ne 0 ] ; then
@@ -74,7 +81,7 @@ cancelBuild () {
 mainBanner () {
 	echo "****************************************************************"
 	echo "**"
-	echo "**  Moode OS Image Builder $VER"
+	echo "**  Moode OS Builder $VER"
 	echo "**"
 	echo "**  Welcome to the automated process for creating the wonderful"
 	echo "**  custom Linux OS that runs moOde audio player."
@@ -83,10 +90,9 @@ mainBanner () {
 	echo "**  enabled and at least 2.5 GB free space on the boot SDCard."
 	echo "**"
 	echo "**  2. The build can be written directly to the boot SDCard or"
-	echo "**  to a second SDCard plugged into the Raspberry Pi using a"
-	echo "**  USB-SDCard drive."
+	echo "**  to a second USB-SDCard plugged into the Raspberry Pi."
 	echo "**"
-	echo "**  WARNING: Raspbian Stretch Lite 2017-11-29 must be used if"
+	echo "**  WARNING: Raspbian Stretch Lite 2018-03-13 must be used if"
 	echo "**  building directly on the boot SDCard. It must be a fresh,"
 	echo "**  unmodified installation of Stretch Lite otherwise the build"
 	echo "**  results cannot be guaranteed."
@@ -108,7 +114,7 @@ directYBanner () {
 	echo  
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
-	echo "// STEP 1 - Writing OS build to boot SDCard"
+	echo "// STEP 1 - Writing OS directly to boot SDCard"
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo
@@ -116,6 +122,18 @@ directYBanner () {
 	readYnInput "** Do you have a backup of your boot SDCard (y/n)? "
 	if [ $YN = "n" ] ; then
 		cancelBuild
+	fi
+
+	readStrInput "** Enter current date (YYYY-MM-DD) "
+	date --set $STR > /dev/null 2>&1
+	if [ $? -ne 0 ] ; then
+		echo "** Error: Invalid date format"
+		readYnInput "** Reenter date (y/n)? "
+		if [ $YN = "y" ] ; then
+			readStrInput "** Enter current date (YYYY-MM-DD) "
+		else
+			cancelBuild
+		fi
 	fi
 }
 
@@ -126,7 +144,7 @@ directNBanner () {
 	echo   
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
-	echo "// STEP 1 - Writing OS build to second SDCard"
+	echo "// STEP 1 - Writing OS to second USB-SDCard"
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo
@@ -239,14 +257,14 @@ getOptions () {
 	echo "   1st is Proxy Server. Set it to 'n' unless you are certain that"
 	echo "   your network requires proxied access to the Internet. The 2nd"
 	echo "   is WiFi connection. For maximum speed and reliability set this"
-	echo "   to 'n' and use an Ethernet connection"
+	echo "   to 'n' and use an Ethernet connection for the Build."
 	echo
 	NUMOPT=2
 	IDXOPT=1
 	proxyServer
 	useWireless
 	#squashFs
-	#latestKernel
+	#updatedKernel
 	#addlComponents
 
 	# if the var does not exist then = n
@@ -259,7 +277,7 @@ confirmBuild () {
 	echo "** Configuration complete:"
 	echo
 	echo "The Builder has completed the configuration and is now ready"
-	echo "to proceed with the image build"
+	echo "to proceed with building Moode OS."
 	echo
 	readYnInput "** Proceed with build (y/n)? "
 	if [ $YN = "n" ] ; then
@@ -313,8 +331,8 @@ squashFs () {
 		SQUASH_FS=$YN
 	fi
 }
-latestKernel () {
-	readYnInput "** Option $((IDXOPT++))-$NUMOPT: install latest Linux Kernel (y/n)? "
+updatedKernel () {
+	readYnInput "** Option $((IDXOPT++))-$NUMOPT: install updated Linux Kernel (y/n)? "
 	if [ $YN = "y" ] ; then
 		LATEST_KERNEL=$YN
 	fi
@@ -421,7 +439,7 @@ unzipRaspbian () {
 }
 
 mountImage () {
-	echo "** Mount Raspbian image partitions"
+	echo "** Mount Raspbian partitions"
 	mkdir part1
 	mkdir part2
 	LOOPDEV=$(sudo losetup -f)
@@ -444,7 +462,7 @@ mountImage () {
 }
 
 modifyImage () {
-	echo "** Modify image"
+	echo "** Modify partitions"
 
 	if [ -z "$DIRECT" ] ; then
 		touch part1/ssh
@@ -461,7 +479,7 @@ modifyImage () {
 		echo "# the player Network configuration page." >> part1/wpa_supplicant.conf
 		echo "#########################################" >> part1/wpa_supplicant.conf
 		echo >> part1/wpa_supplicant.conf
-		echo "country=GB" > part1/wpa_supplicant.conf
+		echo "country=US" >> part1/wpa_supplicant.conf
 		echo "ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev" >> part1/wpa_supplicant.conf
 		echo "update_config=1" >> part1/wpa_supplicant.conf
 		echo >> part1/wpa_supplicant.conf
@@ -489,7 +507,13 @@ modifyImage () {
 	chown -R 1000.1000 part2$MOSBUILD_DIR
 	echo "** Install main worker script"
 
+	# modify rc.local
 	sed -i "s/^exit.*//" part2/etc/rc.local
+	# stretch 2018-03-13 requires unblocking wifi
+	echo "if [ -f /run/wifi-country-unset ] ; then" >> part2/etc/rc.local
+	echo "/usr/sbin/rfkill unblock wifi" >> part2/etc/rc.local
+	echo "fi" >> part2/etc/rc.local
+	echo "** Enable wifi unblock"
 	echo "$MOSBUILD_DIR/mosbuild_worker.sh >> /home/pi/mosbuild.log 2>> /home/pi/mosbuild.log" >> part2/etc/rc.local
 	echo "exit 0" >> part2/etc/rc.local
 	echo "** Enable script for autorun after reboot"
@@ -516,7 +540,7 @@ modifyImage () {
 }
 
 umountImage () {
-	echo "** Image unmounted"
+	echo "** Partitions unmounted"
 	losetup -D
 	umount part1
 	umount part2
@@ -525,26 +549,32 @@ umountImage () {
 }
 
 writeImage () { 
-	echo "** Write image to USB drive on $USBDEV"
+	echo "** Write OS image to USB-SDCard drive on $USBDEV"
 	dd if=mosbuild/$RASPBIAN_IMG of=$USBDEV
 	if [ $? -eq 0 ] ; then
     	echo "** Flush cached disk writes"
 	    sync
+		echo "****************************************************************"
 		echo "**"
-		echo "** Base OS image created on second USB SDCard drive"
+		echo "** Base OS created on second USB SDCard drive"
+		echo "**"
+		echo "** Remove the USB SDCard drive and use the SDCard to boot a Pi."
+		echo "** The build will automatically continue at STEP 2 after boot."
+		echo "** It can take around 1 hour to complete."
+		echo "**"
+		echo "** The cmds mosbrief, moslog and moslast can be used to monitor"
+		echo "** the build via SSH. Connect to server moode, user pi, and"
+		echo "** password moodeaudio for SSH login."
+		echo "**"
+		echo "****************************************************************"
 		echo
-		echo "Remove the USB SDCard drive and use the SDCard to boot a Pi"
-		echo "The build will automatically continue at STEP 2 after boot"
-		echo "It can take around 1 hour to complete"
-		echo "Use cmds: mosbrief, moslog and moslast to monitor the process"
-		echo
-		readYnInput "** Save base OS img for additional builds (y/n)? "
+		readYnInput "** Save base OS image for additional builds (y/n)? "
 		if [ $YN = "n" ] ; then
 			rm -rf mosbuild* 2> /dev/null
 		else
 			echo
-			echo "NOTE: The saved image will become out of date when newer"
-			echo "versions of mosbuild or moOde audio player are released"
+			echo "** NOTE: The saved image will become out of date when newer"
+			echo "** versions of mosbuild or moOde audio player are released."
 			echo
 		fi
 	else
@@ -561,13 +591,19 @@ cleanUp () {
 	if [ -z "$DIRECT" ] ; then 
 		return
 	else
+		echo "****************************************************************"
 		echo "**"
-		echo "** Base OS image created on boot SDCard"
-		echo
-		echo "Pi must be powered off then back on"
-		echo "The build will automatically continue at STEP 2 after boot"
-		echo "It can take around 1 hour to complete"
-		echo "Use cmds: mosbrief, moslog and moslast to monitor the process"
+		echo "** Base OS created on boot SDCard"
+		echo "**"
+		echo "** The Pi must be powered off then back on."
+		echo "** The build will automatically continue at STEP 2 after power on."
+		echo "** It can take around 1 hour to complete."
+		echo "**"
+		echo "** The cmds mosbrief, moslog and moslast can be used to monitor"
+		echo "** the build via SSH. Connect to server moode, user pi, and"
+		echo "** password moodeaudio for SSH login."
+		echo "**"
+		echo "****************************************************************"
 		echo
 		readYnInput "** Power off the Pi (y/n)? "
 		if [ $YN = "y" ] ; then

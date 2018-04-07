@@ -29,9 +29,22 @@
 # - split COMP_C1_C9 into C1_C7 folowwed by C8_C9 because of repo fails in C8
 # - use single squeezelite binary in COMPONENT 5
 # - reset dir permissions for var local in STEP 8
+# 2018-04-02 TC		v2.4
+# - sync with Build Recipe ver
+# - set permissions for localui.service in STEP 8
+# - specify Linux kernel ver and git hash in STEP 11
+# - add echo "y" to rpi-update in STEP 11, reqd for prompt in 4.14.y branch
+# - add apt-get clean to STEP 11
+# - bump to MPD 0.20.18 in STEP 6
+# - bump to upmpdcli-code-1.2.16 in COMPONENT 6 for Tidal fixes
+# - bump to Bluetooth 5.49 in STEP 4
+# - use local libupnppsamples-code sources in COMPONENT 6
+# - remove djmount in COMPONENT 1 and /mnt/UPNP in STEP 7
+# - set time zone to America/Detroit in STEP 2
+# - add apt-get update in STEP 3B for robustness
 #
  
-VER="v2.2"
+VER="v2.4"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -73,6 +86,7 @@ loadProperties () {
 STEP_2 () {
 	waitForRc 10
 	cd $MOSBUILD_DIR
+	timedatectl set-timezone "America/Detroit"
     
     if [ -z "$DIRECT" ] ; then
 	  echo
@@ -155,6 +169,7 @@ STEP_3A () {
 	systemctl enable rpcbind
 	DEBIAN_FRONTEND=noninteractive apt-get -y purge triggerhappy
 	if [ $? -ne 0 ] ; then
+		dpkg --configure -a
 		cancelBuild "** Error: unable to purge triggerhappy"
 	fi
 
@@ -196,6 +211,12 @@ STEP_3B_4 () {
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
+	echo "** Refresh Raspbian package list"
+	DEBIAN_FRONTEND=noninteractive apt-get update
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: refresh failed"
+	fi
+
 	echo "** Install core packages"
 	DEBIAN_FRONTEND=noninteractive  apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 memcached php-memcache mpc \
 		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools tcpdump shellinabox \
@@ -228,13 +249,29 @@ STEP_3B_4 () {
 	systemctl disable dnsmasq
 
 	echo "** Install Bluetooth packages"
-	DEBIAN_FRONTEND=noninteractive apt-get -y install bluez bluez-firmware pi-bluetooth \
-		dh-autoreconf expect libortp-dev libbluetooth-dev libasound2-dev \
+	DEBIAN_FRONTEND=noninteractive apt-get -y install bluez-firmware pi-bluetooth \
+		dh-autoreconf expect libdbus-1-dev libortp-dev libbluetooth-dev libasound2-dev \
 		libusb-dev libglib2.0-dev libudev-dev libical-dev libreadline-dev libsbc1 libsbc-dev
 	
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: install failed"
 	fi
+
+	echo "** Compile bluez"
+	cp ./rel-stretch/other/bluetooth/bluez-5.49.tar.xz ./
+	tar xvf bluez-5.49.tar.xz
+	cd bluez-5.49
+	./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-library
+	make
+	make install
+	cd ~
+	rm -rf ./bluez-5.49
+	rm ./bluez-5.49.tar.xz	
+	echo "** Delete symlink and bin for old bluetoothd"
+	rm /usr/sbin/bluetoothd
+	rm -rf /usr/lib/bluetooth
+	echo "** Create symlink for new bluetoothd"
+	ln -s /usr/libexec/bluetooth/bluetoothd /usr/sbin/bluetoothd
 
 	echo "** Compile bluez-alsa"
 	mkdir $MOSBUILD_DIR/work
@@ -400,17 +437,17 @@ STEP_5_6 () {
 			cancelBuild "** Error: Autoremove failed"
 		fi
 	else
-		wget http://www.musicpd.org/download/mpd/0.20/mpd-0.20.12.tar.xz
+		wget http://www.musicpd.org/download/mpd/0.20/mpd-0.20.18.tar.xz
 		if [ $? -ne 0 ] ; then
 			cancelBuild "** Error: Download failed"
 		fi
 	
-		tar xf mpd-0.20.12.tar.xz
+		tar xf mpd-0.20.18.tar.xz
 		if [ $? -ne 0 ] ; then
 			cancelBuild "** Error: Un-tar failed"
 		fi
 	
-		cd mpd-0.20.12
+		cd mpd-0.20.18
 		sh autogen.sh
 		if [ $? -ne 0 ] ; then
 			cancelBuild "** Error: Autogen failed"
@@ -448,7 +485,7 @@ STEP_5_6 () {
 	
 		echo "** Cleanup"
 		cd $MOSBUILD_DIR
-		rm -rf ./mpd-0.20.12
+		rm -rf ./mpd-0.20.18
 		DEBIAN_FRONTEND=noninteractive apt-get clean
 		if [ $? -ne 0 ] ; then
 			cancelBuild "** Error: Cleanup failed"
@@ -493,7 +530,6 @@ STEP_7_8 () {
 	echo "** Create mount points"
 	mkdir /mnt/NAS
 	mkdir /mnt/SDCARD
-	mkdir /mnt/UPNP
 
 	echo "** Create symlinks"
 	ln -s /mnt/NAS /var/lib/mpd/music/NAS
@@ -570,6 +606,8 @@ STEP_7_8 () {
 	chmod 0644 /lib/systemd/system/rotenc.service
 	echo "** Udev"
 	chmod 0644 /etc/udev/rules.d/*
+	echo "Localui"
+	chmod 0644 /lib/systemd/system/localui.service
 
 	echo "** Services are started by moOde Worker so lets disable them here"
 	systemctl daemon-reload
@@ -681,25 +719,26 @@ STEP_11 () {
 	cd $MOSBUILD_DIR
 
 	if [ -z "$LATEST_KERNEL" ] ; then
-		echo "** STEP 11 - Latest kernel option not selected"
+		echo "** STEP 11 - Updated kernel option not selected"
 		STEP_12_13
 	else
 		echo
 		echo "////////////////////////////////////////////////////////////////"
 		echo "//"
-		echo "// STEP 11 - Optionally, install latest Linux Kernel"
+		echo "// STEP 11 - Optionally, install updated Linux Kernel"
 		echo "//"
 		echo "////////////////////////////////////////////////////////////////"
 		echo
 
-		echo "** Download and installing latest Linux kernel"
-		PRUNE_MODULES=1 rpi-update
+		echo "** Download and install Linux kernel $KERNEL_VER"
+		echo "y" | PRUNE_MODULES=1 rpi-update $KERNEL_HASH
 		if [ $? -ne 0 ] ; then
 			cancelBuild "** Error: rpi-update failed"
 		else
 			echo "** Cleanup"
 		    rm -rf /lib/modules.bak
 		    rm -rf /boot.bak
+			DEBIAN_FRONTEND=noninteractive apt-get clean
 			echo "** Reboot 7"
 			echo "12-13" > $MOSBUILD_STEP
 			sync
@@ -816,12 +855,6 @@ COMP_C1_C7 () {
 	systemctl disable minidlna
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Disable failed"
-	fi
-
-	echo "** Install Djmount package"
-	DEBIAN_FRONTEND=noninteractive apt-get -y install djmount
-	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: install failed"
 	fi
 
 	echo
@@ -1021,12 +1054,16 @@ COMP_C1_C7 () {
 	rm libupnpp-0.16.0.tar.gz
 		
 	echo "** Compile Upmpdcli"	
-	cp ./rel-stretch/other/upmpdcli/upmpdcli-1.2.15.tar.gz ./
-	tar xfz ./upmpdcli-1.2.15.tar.gz 
+	cp ./rel-stretch/other/upmpdcli/upmpdcli-code-1.2.16.tar.gz ./
+	tar xfz ./upmpdcli-code-1.2.16.tar.gz 
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
-	cd upmpdcli-1.2.15
+	cd upmpdcli-code
+	./autogen.sh
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Autogen failed"
+	fi
 	./configure --prefix=/usr --sysconfdir=/etc
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Configure failed"
@@ -1041,8 +1078,8 @@ COMP_C1_C7 () {
 	fi
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./upmpdcli-1.2.15
-	rm upmpdcli-1.2.15.tar.gz
+	rm -rf ./upmpdcli-code-1.2.16
+	rm upmpdcli-code-1.2.16.tar.gz
 	
 	echo "** Configure runtime env"
 	useradd upmpdcli
@@ -1053,10 +1090,7 @@ COMP_C1_C7 () {
 	systemctl disable upmpdcli
 	
 	echo "** Compile Upexplorer"	
-	git clone https://@opensourceprojects.eu/git/p/libupnppsamples/code libupnppsamples-code
-	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Git clone failed"
-	fi
+	cp -r ./rel-stretch/other/libupnppsamples-code/ ./
 	cd libupnppsamples-code
 	./autogen.sh
 	if [ $? -ne 0 ] ; then
