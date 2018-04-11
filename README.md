@@ -1,6 +1,6 @@
 # Moode OS Builder
 
-The Moode OS Builder is a script that runs on a Raspberry Pi and automates the process of creating the custom Linux OS that runs moOde audio player. The Builder requires a Raspberry Pi running Raspbian with SSH enabled, at least 2.5 GB free space on the boot SDCard, and an Internect connection, preferably via Ethernet
+The Moode OS Builder is a script that runs on a Raspberry Pi and automates the process of creating the custom Linux OS that runs moOde audio player. The Builder requires a Raspberry Pi running Raspbian with SSH enabled, at least 2.5 GB free space on the boot SDCard, and an Internet connection, preferably via Ethernet
 
 The OS can be built directly on the boot SDCard (direct build) or on a second USB-SDCard plugged into the Raspberry Pi. If the direct build method is used then the Pi must be running the exact release of Raspbian Stretch Lite specified in the Build requirements. The USB-SDCard method automatically uses the correct release of Raspbian Stretch Lite.
 
