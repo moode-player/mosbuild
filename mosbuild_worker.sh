@@ -42,9 +42,18 @@
 # - remove djmount in COMPONENT 1 and /mnt/UPNP in STEP 7
 # - set time zone to America/Detroit in STEP 2
 # - add apt-get update in STEP 3B for robustness
+# 2018-07-11		v2.5
+# - Use BlueZ-master-4e926f8.zip in STEP 4
+# - Use bluez-alsa-master-88aefee.zip in STEP 4
+# - Add header to default bluealsa.service file in STEP 4
+# - Add -y to apt-get autoremove in STEP 6
+# - Bump to WiringPi 2.46 in STEP 5
+# - Set 0755 perm on home/pi/*.sh and *.php
+# - add mpc update to Final Cleanup
+# - add systemctl set-default multi-user.target to STEP 3A
 #
  
-VER="v2.4"
+VER="v2.5"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -167,6 +176,7 @@ STEP_3A () {
 	rm -f /var/swap
 	systemctl disable cron.service
 	systemctl enable rpcbind
+	systemctl set-default multi-user.target
 	DEBIAN_FRONTEND=noninteractive apt-get -y purge triggerhappy
 	if [ $? -ne 0 ] ; then
 		dpkg --configure -a
@@ -258,15 +268,18 @@ STEP_3B_4 () {
 	fi
 
 	echo "** Compile bluez"
-	cp ./rel-stretch/other/bluetooth/bluez-5.49.tar.xz ./
-	tar xvf bluez-5.49.tar.xz
-	cd bluez-5.49
+	# Compile bluez 5.49
+	# 2018-05-02 commit 4e926f8e3ef2e3321f9b169db54ec256d9b41207
+	cp ./rel-stretch/other/bluetooth/BlueZ-master-4e926f8.zip ./
+	unzip BlueZ-master-4e926f8.zip
+	cd BlueZ-master
+	autoreconf --install
 	./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-library
 	make
 	make install
-	cd ~
-	rm -rf ./bluez-5.49
-	rm ./bluez-5.49.tar.xz	
+	cd ..
+	rm -rf ./BlueZ-master
+	rm ./BlueZ-master-4e926f8.zip
 	echo "** Delete symlink and bin for old bluetoothd"
 	rm /usr/sbin/bluetoothd
 	rm -rf /usr/lib/bluetooth
@@ -274,15 +287,12 @@ STEP_3B_4 () {
 	ln -s /usr/libexec/bluetooth/bluetoothd /usr/sbin/bluetoothd
 
 	echo "** Compile bluez-alsa"
-	mkdir $MOSBUILD_DIR/work
-	cd $MOSBUILD_DIR/work
-	git clone https://github.com/Arkq/bluez-alsa.git
-	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Git clone failed"
-	fi
-
+	# Compile bluealsa 1.2.0
+	# 2018-04-16 commit 88aefeea56b7ea20668796c2c7a8312bf595eef4
+	cp ./rel-stretch/other/bluetooth/bluez-alsa-master-88aefee.zip ./
+	unzip bluez-alsa-master-88aefee.zip
 	echo "Ignore warnings from autoreconf and configure"
-	cd bluez-alsa
+	cd bluez-alsa-master
 	autoreconf --install
 	mkdir build
 	cd build
@@ -301,21 +311,24 @@ STEP_3B_4 () {
 		cancelBuild "** Error: Make install failed"
 	fi
 
-	cd $MOSBUILD_DIR
-	rm -rf $MOSBUILD_DIR/work
+	cd ../..
+	rm -rf ./bluez-alsa-master
+	rm ./bluez-alsa-master-88aefee.zip
 
-	echo "** Verify bluealsa.service"
+	echo "** Check for default bluealsa.service file"
 	if [ ! -f /lib/systemd/system/bluealsa.service ] ; then
-		echo "** Creating bluealsa.service"
-		echo "[Unit]" > /lib/systemd/system/bluealsa.service
+		echo "** Creating default bluealsa.service file"
+		echo "#" > /lib/systemd/system/bluealsa.service
+		echo "# Created by Moode OS Builder" >> /lib/systemd/system/bluealsa.service
+		echo "# The corresponfing file in /etc/systemd/system takes precidence" >> /lib/systemd/system/bluealsa.service
+		echo "#" >> /lib/systemd/system/bluealsa.service
+		echo "[Unit]" >> /lib/systemd/system/bluealsa.service
 		echo "Description=BluezAlsa proxy" >> /lib/systemd/system/bluealsa.service
 		echo "Requires=bluetooth.service" >> /lib/systemd/system/bluealsa.service
 		echo "After=bluetooth.service" >> /lib/systemd/system/bluealsa.service
 		echo >> /lib/systemd/system/bluealsa.service
 		echo "[Service]" >> /lib/systemd/system/bluealsa.service
 		echo "Type=simple" >> /lib/systemd/system/bluealsa.service
-		echo "User=bluealsa" >> /lib/systemd/system/bluealsa.service
-		echo "Group=audio" >> /lib/systemd/system/bluealsa.service
 		echo "ExecStart=/usr/bin/bluealsa" >> /lib/systemd/system/bluealsa.service
 		echo >> /lib/systemd/system/bluealsa.service
 		echo "[Install]" >> /lib/systemd/system/bluealsa.service
@@ -356,22 +369,22 @@ STEP_5_6 () {
 	echo
 
 	echo "** Compile WiringPi"
-	cp ./rel-stretch/other/wiringpi/wiringPi-2.44-96344ff.tar.gz ./
+	cp ./rel-stretch/other/wiringpi/wiringPi-2.46-8d188fa0.tar.gz ./
 
-	tar xfz wiringPi-2.44-96344ff.tar.gz
+	tar xfz wiringPi-2.46-8d188fa0.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
 
-	cd wiringPi-96344ff
+	cd wiringPi-2.46-8d188fa0
 	./build
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Compile failed"
 	fi
 	
 	cd ..
-	rm -rf wiringPi-96344ff
-	rm -f wiringPi-2.44-96344ff.tar.gz
+	rm -rf wiringPi-2.46-8d188fa0
+	rm -f wiringPi-2.46-8d188fa0.tar.gz
 
 	echo "** Compile rotary encoder driver"
 	cp rel-stretch/other/rotenc/rotenc.c ./
@@ -432,7 +445,7 @@ STEP_5_6 () {
 			cancelBuild "** Error: Cleanup failed"
 		fi
 	
-		DEBIAN_FRONTEND=noninteractive apt-get autoremove
+		DEBIAN_FRONTEND=noninteractive apt-get -y autoremove
 		if [ $? -ne 0 ] ; then
 			cancelBuild "** Error: Autoremove failed"
 		fi
@@ -491,7 +504,7 @@ STEP_5_6 () {
 			cancelBuild "** Error: Cleanup failed"
 		fi
 	
-		DEBIAN_FRONTEND=noninteractive apt-get autoremove
+		DEBIAN_FRONTEND=noninteractive apt-get -y autoremove
 		if [ $? -ne 0 ] ; then
 			cancelBuild "** Error: Autoremove failed"
 		fi
@@ -535,7 +548,7 @@ STEP_7_8 () {
 	ln -s /mnt/NAS /var/lib/mpd/music/NAS
 	ln -s /mnt/SDCARD /var/lib/mpd/music/SDCARD
 	ln -s /media /var/lib/mpd/music/USB
-	ln -s /var/lib/mpd/music /var/www/vlmm90614385
+	ln -s /var/lib/mpd/music /var/www/vlmm03846271
 
 	echo "** Create logfiles"
 	touch /var/log/moode.log
@@ -576,7 +589,7 @@ STEP_7_8 () {
 
 	echo "** Install application sources and configs"
 	rm /var/lib/mpd/music/RADIO/* 2> /dev/null
-	rm /var/www/images/radio-logos/* 2> /dev/null
+	rm -rf /var/www/images/radio-logos/ 2> /dev/null
 	cp ./rel-stretch/mpd/RADIO/* /var/lib/mpd/music/RADIO
 	cp ./rel-stretch/mpd/playlists/* /var/lib/mpd/playlists
 	cp -r ./rel-stretch/etc/* /etc
@@ -587,6 +600,8 @@ STEP_7_8 () {
 	cp -r ./rel-stretch/usr/* /usr
 	cp -r ./rel-stretch/var/* /var
 	cp -r ./rel-stretch/www/* /var/www
+	chmod 0755 /home/pi/*.sh
+	chmod 0755 /home/pi/*.php
 	chmod 0755 /var/www/command/*
 	/var/www/command/util.sh emerald "27ae60" "rgba(39,174,96,0.71)"
 	sqlite3 /var/local/www/db/moode-sqlite3.db "update cfg_system set value='Emerald' where param='themecolor'"
@@ -1226,6 +1241,10 @@ finalCleanup () {
 	fi
 	echo "** Clear syslogs"
 	/var/www/command/util.sh clear-syslogs
+
+	echo "** Update MPD database"
+	mpc update
+	sleep 10
 
 	TIMESTAMP=$(date)
 	echo "** "$TIMESTAMP

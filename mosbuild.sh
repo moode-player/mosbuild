@@ -34,9 +34,12 @@
 # - update completion banners
 # - chg wifi country from GB to US
 # - create new etc/rc.local that unblocks wifi
+# 2018-07-11 TC 	v2.5
+# - sync with Build Recipe ver
+# - bump to 2018-06-27 Stretch Lite
 #
       
-VER="v2.4"
+VER="v2.5"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment
@@ -92,7 +95,7 @@ mainBanner () {
 	echo "**  2. The build can be written directly to the boot SDCard or"
 	echo "**  to a second USB-SDCard plugged into the Raspberry Pi."
 	echo "**"
-	echo "**  WARNING: Raspbian Stretch Lite 2018-03-13 must be used if"
+	echo "**  WARNING: Raspbian Stretch Lite 2018-06-27 must be used if"
 	echo "**  building directly on the boot SDCard. It must be a fresh,"
 	echo "**  unmodified installation of Stretch Lite otherwise the build"
 	echo "**  results cannot be guaranteed."
@@ -509,7 +512,7 @@ modifyImage () {
 
 	# modify rc.local
 	sed -i "s/^exit.*//" part2/etc/rc.local
-	# stretch 2018-03-13 requires unblocking wifi
+	# stretch requires unblocking wifi
 	echo "if [ -f /run/wifi-country-unset ] ; then" >> part2/etc/rc.local
 	echo "/usr/sbin/rfkill unblock wifi" >> part2/etc/rc.local
 	echo "fi" >> part2/etc/rc.local
