@@ -76,6 +76,6 @@ The Build is successful when the last line of the Build log is:
 // END
 ```
 ## Other Resources
-[moodeaudio.org](http://moodeaudio.org)\
-[moOde Twitter feed](http://twitter.com/MoodeAudio)\
-[Contributors](https://github.com/moode-player/moode/blob/master/www/CONTRIBS.html)
+moOde audio player: https://github.com/moode-player/moode<br>
+moodeaudio.org: http://moodeaudio.org<br>
+moOde Twitter feed: http://twitter.com/MoodeAudio<br>
