@@ -37,9 +37,11 @@
 # 2018-07-11 TC 	v2.5
 # - sync with Build Recipe ver
 # - bump to 2018-06-27 Stretch Lite
+# 2018-09-27		v2.6
+# - bump version
 #
       
-VER="v2.5"
+VER="v2.6"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment

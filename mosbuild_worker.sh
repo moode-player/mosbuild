@@ -51,9 +51,17 @@
 # - Set 0755 perm on home/pi/*.sh and *.php
 # - add mpc update to Final Cleanup
 # - add systemctl set-default multi-user.target to STEP 3A
+# 2018-09-27		v2.6
+# - add >/dev/null to mpc update in Final Cleanup
+# - update root symlink
+# - add libaudiofile for wav to mpd compile in STEP 6
+# - add php7.0-gd in STEP 3B
+# - add COMPONENT 4B - Librespot
+# - add 6. Patch for upmpdcli gmusic plugin to COMPONENT 6.
+# - bump version
 #
  
-VER="v2.5"
+VER="v2.6"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -228,7 +236,7 @@ STEP_3B_4 () {
 	fi
 
 	echo "** Install core packages"
-	DEBIAN_FRONTEND=noninteractive  apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 memcached php-memcache mpc \
+	DEBIAN_FRONTEND=noninteractive  apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 memcached php-memcache php7.0-gd mpc \
 		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools tcpdump shellinabox \
 		samba smbclient udisks-glue ntfs-3g exfat-fuse git inotify-tools libav-tools avahi-utils
 
@@ -424,7 +432,7 @@ STEP_5_6 () {
 
 	echo "** Install MPD devlibs"
 	DEBIAN_FRONTEND=noninteractive apt-get -y install libmad0-dev libmpg123-dev libid3tag0-dev \
-		libflac-dev libvorbis-dev libfaad-dev \
+		libflac-dev libvorbis-dev libaudiofile-dev libfaad-dev \
 		libwavpack-dev libavcodec-dev libavformat-dev \
 		libmp3lame-dev libsoxr-dev libcdio-paranoia-dev libiso9660-dev \
 		libcurl4-gnutls-dev libasound2-dev libshout3-dev libyajl-dev \
@@ -476,7 +484,7 @@ STEP_5_6 () {
 			--disable-wildmidi --disable-sqlite --disable-jack --disable-ao --disable-oss \
 			--disable-ipv6 --disable-pulse --disable-nfs --disable-smbclient \
 			--disable-upnp --disable-expat --disable-lsr \
-			--disable-sndfile --disable-audiofile --disable-sidplay
+			--disable-sndfile --disable-sidplay
 		if [ $? -ne 0 ] ; then
 			cancelBuild "** Error: Configure failed"
 		fi
@@ -548,7 +556,7 @@ STEP_7_8 () {
 	ln -s /mnt/NAS /var/lib/mpd/music/NAS
 	ln -s /mnt/SDCARD /var/lib/mpd/music/SDCARD
 	ln -s /media /var/lib/mpd/music/USB
-	ln -s /var/lib/mpd/music /var/www/vlmm03846271
+	ln -s /var/lib/mpd/music /var/www/95187460
 
 	echo "** Create logfiles"
 	touch /var/log/moode.log
@@ -933,7 +941,7 @@ COMP_C1_C7 () {
 	echo
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
-	echo "// COMPONENT 4 - Shairport-sync"
+	echo "// COMPONENT 4A - Shairport-sync"
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo
@@ -989,6 +997,22 @@ COMP_C1_C7 () {
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Cleanup failed"
 	fi
+
+	echo
+	echo "////////////////////////////////////////////////////////////////"
+	echo "//"
+	echo "// COMPONENT 4B - Librespot"
+	echo "//"
+	echo "////////////////////////////////////////////////////////////////"
+	echo
+
+	cd $MOSBUILD_DIR
+
+	echo "** Install librespot devlibs"
+	DEBIAN_FRONTEND=noninteractive apt-get -y install portaudio19-dev
+
+	echo "** Install pre-compiled binary"
+	cp ./rel-stretch/other/librespot/$LR_BIN /usr/local/bin/librespot
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -1132,6 +1156,9 @@ COMP_C1_C7 () {
 		cancelBuild "** Error: Cleanup failed"
 	fi
 
+	echo "** Patch for upmpdcli gmusic plugin"
+	cp ./rel-stretch/other/upmpdcli/session.py /usr/share/upmpdcli/cdplugins/gmusic
+
 	echo
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
@@ -1243,7 +1270,7 @@ finalCleanup () {
 	/var/www/command/util.sh clear-syslogs
 
 	echo "** Update MPD database"
-	mpc update
+	mpc update >/dev/null
 	sleep 10
 
 	TIMESTAMP=$(date)
