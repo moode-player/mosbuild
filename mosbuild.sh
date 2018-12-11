@@ -39,9 +39,11 @@
 # - bump to 2018-06-27 Stretch Lite
 # 2018-09-27		v2.6
 # - bump version
+# 2018-12-09		v2.7
+# - bump version
 #
       
-VER="v2.6"
+VER="v2.7"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment
@@ -97,7 +99,7 @@ mainBanner () {
 	echo "**  2. The build can be written directly to the boot SDCard or"
 	echo "**  to a second USB-SDCard plugged into the Raspberry Pi."
 	echo "**"
-	echo "**  WARNING: Raspbian Stretch Lite 2018-06-27 must be used if"
+	echo "**  WARNING: Raspbian Stretch Lite 2018-11-13 must be used if"
 	echo "**  building directly on the boot SDCard. It must be a fresh,"
 	echo "**  unmodified installation of Stretch Lite otherwise the build"
 	echo "**  results cannot be guaranteed."

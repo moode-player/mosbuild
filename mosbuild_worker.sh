@@ -59,9 +59,15 @@
 # - add COMPONENT 4B - Librespot
 # - add 6. Patch for upmpdcli gmusic plugin to COMPONENT 6.
 # - bump version
+# 2018-12-09		v2.7
+# - bump to MPD 0.20.20-ffmpeg in STEP 6
+# - add meson and ninja to core components in STEP 3
+# - Use pre-compiled binary for shairport-sync in COMPONENT 4A
+# - deprecate symlink to /var/lib/mpd/music in STEP 7
+# - bump version
 #
  
-VER="v2.6"
+VER="v2.7"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -238,11 +244,26 @@ STEP_3B_4 () {
 	echo "** Install core packages"
 	DEBIAN_FRONTEND=noninteractive  apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 memcached php-memcache php7.0-gd mpc \
 		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools tcpdump shellinabox \
-		samba smbclient udisks-glue ntfs-3g exfat-fuse git inotify-tools libav-tools avahi-utils
+		samba smbclient udisks-glue ntfs-3g exfat-fuse git inotify-tools libav-tools avahi-utils \
+		ninja-build python3-setuptools
 
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi													 
+
+	echo "** Install meson"
+	cp ./rel-stretch/other/mpd/build-tools/meson-0.48.1.tar.gz ./
+	tar xfz meson-0.48.1.tar.gz
+	cd meson-0.48.1
+	python3 setup.py install
+
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Install failed"
+	fi													 
+
+	cd ..
+	rm -rf meson-0.48.1
+	rm -f meson-0.48.1.tar.gz
 
 	echo "** Disable shellinabox"
 	systemctl disable shellinabox
@@ -254,6 +275,7 @@ STEP_3B_4 () {
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo
+	cd $MOSBUILD_DIR
 
 	echo "** Install Host AP Mode packages"
 	DEBIAN_FRONTEND=noninteractive apt-get -y install dnsmasq hostapd
@@ -442,80 +464,18 @@ STEP_5_6 () {
 		cancelBuild "** Error: install failed"
 	fi 
 
-	# Check for binary
-	if [ -f ./rel-stretch/other/mpd/$MPD_BIN ] ; then
-		echo "** Install pre-compiled binary"
-		cp ./rel-stretch/other/mpd/$MPD_BIN /usr/local/bin/mpd
+	echo "** Install pre-compiled binary"
+	cp ./rel-stretch/other/mpd/$MPD_BIN /usr/local/bin/mpd
 
-		echo "** Cleanup"
-		DEBIAN_FRONTEND=noninteractive apt-get clean
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Cleanup failed"
-		fi
-	
-		DEBIAN_FRONTEND=noninteractive apt-get -y autoremove
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Autoremove failed"
-		fi
-	else
-		wget http://www.musicpd.org/download/mpd/0.20/mpd-0.20.18.tar.xz
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Download failed"
-		fi
-	
-		tar xf mpd-0.20.18.tar.xz
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Un-tar failed"
-		fi
-	
-		cd mpd-0.20.18
-		sh autogen.sh
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Autogen failed"
-		fi
-	
-		./configure --enable-database --enable-libmpdclient --enable-alsa \
-			--enable-curl --enable-dsd --enable-ffmpeg --enable-flac \
-			--enable-id3 --enable-soundcloud --enable-lame-encoder --enable-mad \
-			--enable-mpg123 --enable-pipe-output --enable-recorder-output --enable-shout \
-			--enable-vorbis --enable-wave-encoder --enable-wavpack --enable-httpd-output \
-			--enable-soxr --with-zeroconf=avahi \
-			--disable-bzip2 --disable-zzip --disable-fluidsynth --disable-gme \
-			--disable-wildmidi --disable-sqlite --disable-jack --disable-ao --disable-oss \
-			--disable-ipv6 --disable-pulse --disable-nfs --disable-smbclient \
-			--disable-upnp --disable-expat --disable-lsr \
-			--disable-sndfile --disable-sidplay
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Configure failed"
-		fi
-		
-		make
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Make failed"
-		fi
-	
-		make install
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: install failed"
-		fi
-	
-		strip --strip-unneeded /usr/local/bin/mpd
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Strip failed"
-		fi  
-	
-		echo "** Cleanup"
-		cd $MOSBUILD_DIR
-		rm -rf ./mpd-0.20.18
-		DEBIAN_FRONTEND=noninteractive apt-get clean
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Cleanup failed"
-		fi
-	
-		DEBIAN_FRONTEND=noninteractive apt-get -y autoremove
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Autoremove failed"
-		fi
+	echo "** Cleanup"
+	DEBIAN_FRONTEND=noninteractive apt-get clean
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Cleanup failed"
+	fi
+
+	DEBIAN_FRONTEND=noninteractive apt-get -y autoremove
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Autoremove failed"
 	fi
 
 	echo "** Reboot 4"
@@ -556,8 +516,7 @@ STEP_7_8 () {
 	ln -s /mnt/NAS /var/lib/mpd/music/NAS
 	ln -s /mnt/SDCARD /var/lib/mpd/music/SDCARD
 	ln -s /media /var/lib/mpd/music/USB
-	ln -s /var/lib/mpd/music /var/www/95187460
-
+	
 	echo "** Create logfiles"
 	touch /var/log/moode.log
 	chmod 0666 /var/log/moode.log
@@ -952,40 +911,11 @@ COMP_C1_C7 () {
 	DEBIAN_FRONTEND=noninteractive apt-get -y install autoconf libtool libdaemon-dev libasound2-dev libpopt-dev libconfig-dev \
 		avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: install failed"
+		cancelBuild "** Error: Install failed"
 	fi
 
-	# Check for binary
-	if [ -f ./rel-stretch/other/shairport-sync/$SPS_BIN ] ; then
-		echo "** Install pre-compiled binary"
-		cp ./rel-stretch/other/shairport-sync/$SPS_BIN /usr/local/bin/shairport-sync
-	else
-		echo "** Compile shairport-sync"
-		git clone https://github.com/mikebrady/shairport-sync.git
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Git clone failed"
-		fi
-		
-		cd shairport-sync
-		autoreconf -i -f
-		./configure --with-alsa --with-avahi --with-ssl=openssl --with-soxr --with-metadata --with-stdout --with-systemd
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Configure failed"
-		fi
-	
-		make
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: Make failed"
-		fi
-	
-		make install
-		if [ $? -ne 0 ] ; then
-			cancelBuild "** Error: install failed"
-		fi
-	
-		echo "** Disable shairport-sync service"
-		systemctl disable shairport-sync
-	fi
+	echo "** Install pre-compiled binary"
+	cp ./rel-stretch/other/shairport-sync/$SPS_BIN /usr/local/bin/shairport-sync
 	
 	echo "** Install conf file"
 	cd ..
@@ -1010,6 +940,9 @@ COMP_C1_C7 () {
 
 	echo "** Install librespot devlibs"
 	DEBIAN_FRONTEND=noninteractive apt-get -y install portaudio19-dev
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Install failed"
+	fi
 
 	echo "** Install pre-compiled binary"
 	cp ./rel-stretch/other/librespot/$LR_BIN /usr/local/bin/librespot
