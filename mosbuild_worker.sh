@@ -554,7 +554,8 @@ STEP_7_8 () {
 	chmod 0644 /lib/systemd/system/upmpdcli.service
 	systemctl disable upmpdcli.service
 
-	echo "** Reset permissions for var and usr local"
+	echo "** Reset permissions"
+	chmod -R 0755 /var/www
 	chmod -R 0755 /var/local/www
 	chmod -R 0777 /var/local/www/db
 	chmod -R ug-s /var/local/www
