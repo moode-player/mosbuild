@@ -15,59 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2017-12-08 TC		v1.0 adapted Koda59 original script
-# 2017-12-17 Koda59 v1.1
-# - fix waitForRc time when apt command just after
-# - fix force apt-get using IPv4 when proxy set (apt issue)
-# 2017-12-20 Koda59 v2.0 add method without USB SD Card reader (all from cuurent SD - fresh Raspbian)
-# 2017-12-23 Koda59 v2.1 take control of Act LED during build 
-# 2017-12-24 Koda59 v2.11
-# - add total time to build to the mosbuild.log
-# - don't clean mosbuild directory in cancelBuild to enable resume after reboot
-# 2018-01-19 TC		v2.2
-# - simplified and adapted
-# - split COMP_C1_C9 into C1_C7 folowwed by C8_C9 because of repo fails in C8
-# - use single squeezelite binary in COMPONENT 5
-# - reset dir permissions for var local in STEP 8
-# 2018-04-02 TC		v2.4
-# - sync with Build Recipe ver
-# - set permissions for localui.service in STEP 8
-# - specify Linux kernel ver and git hash in STEP 11
-# - add echo "y" to rpi-update in STEP 11, reqd for prompt in 4.14.y branch
-# - add apt-get clean to STEP 11
-# - bump to MPD 0.20.18 in STEP 6
-# - bump to upmpdcli-code-1.2.16 in COMPONENT 6 for Tidal fixes
-# - bump to Bluetooth 5.49 in STEP 4
-# - use local libupnppsamples-code sources in COMPONENT 6
-# - remove djmount in COMPONENT 1 and /mnt/UPNP in STEP 7
-# - set time zone to America/Detroit in STEP 2
-# - add apt-get update in STEP 3B for robustness
-# 2018-07-11		v2.5
-# - Use BlueZ-master-4e926f8.zip in STEP 4
-# - Use bluez-alsa-master-88aefee.zip in STEP 4
-# - Add header to default bluealsa.service file in STEP 4
-# - Add -y to apt-get autoremove in STEP 6
-# - Bump to WiringPi 2.46 in STEP 5
-# - Set 0755 perm on home/pi/*.sh and *.php
-# - add mpc update to Final Cleanup
-# - add systemctl set-default multi-user.target to STEP 3A
-# 2018-09-27		v2.6
-# - add >/dev/null to mpc update in Final Cleanup
-# - update root symlink
-# - add libaudiofile for wav to mpd compile in STEP 6
-# - add php7.0-gd in STEP 3B
-# - add COMPONENT 4B - Librespot
-# - add 6. Patch for upmpdcli gmusic plugin to COMPONENT 6.
-# - bump version
-# 2018-12-09		v2.7
-# - bump to MPD 0.20.20-ffmpeg in STEP 6
-# - add meson and ninja to core components in STEP 3
-# - Use pre-compiled binary for shairport-sync in COMPONENT 4A
-# - deprecate symlink to /var/lib/mpd/music in STEP 7
-# - bump version
+# 22019-05-07 TC moOde 5.2
+#
 #
  
-VER="v2.7"
+VER="v2.8"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -244,26 +196,29 @@ STEP_3B_4 () {
 	echo "** Install core packages"
 	DEBIAN_FRONTEND=noninteractive  apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 memcached php-memcache php7.0-gd mpc \
 		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools tcpdump shellinabox \
-		samba smbclient udisks-glue ntfs-3g exfat-fuse git inotify-tools libav-tools avahi-utils \
-		ninja-build python3-setuptools
-
+		samba smbclient udisks-glue ntfs-3g exfat-fuse git inotify-tools libav-tools avahi-utils ninja-build \
+		python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-4 libzen0v5 libmediainfo-dev libzen-dev
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi													 
 
 	echo "** Install meson"
-	cp ./rel-stretch/other/mpd/build-tools/meson-0.48.1.tar.gz ./
-	tar xfz meson-0.48.1.tar.gz
-	cd meson-0.48.1
+	cp ./rel-stretch/other/mpd/build-tools/meson-0.50.1.tar.gz ./
+	tar xfz meson-0.50.1.tar.gz
+	cd meson-0.50.1
 	python3 setup.py install
-
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi													 
 
 	cd ..
-	rm -rf meson-0.48.1
-	rm -f meson-0.48.1.tar.gz
+	rm -rf meson-0.50.1*
+
+	echo "** Install mediainfo"
+	cp ./rel-stretch/other/mediainfo/mediainfo-18.12 /usr/local/bin/mediainfo
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Install failed"
+	fi													 
 
 	echo "** Disable shellinabox"
 	systemctl disable shellinabox
@@ -298,18 +253,17 @@ STEP_3B_4 () {
 	fi
 
 	echo "** Compile bluez"
-	# Compile bluez 5.49
-	# 2018-05-02 commit 4e926f8e3ef2e3321f9b169db54ec256d9b41207
-	cp ./rel-stretch/other/bluetooth/BlueZ-master-4e926f8.zip ./
-	unzip BlueZ-master-4e926f8.zip
-	cd BlueZ-master
+	# Compile bluez 5.50
+	# 2018-06-01 commit 8994b7f2bf817a7fea677ebe18f690a426088367
+	cp ./rel-stretch/other/bluetooth/bluez-5.50.tar.xz ./
+	tar xf bluez-5.50.tar.xz >/dev/null
+	cd bluez-5.50
 	autoreconf --install
 	./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-library
 	make
 	make install
 	cd ..
-	rm -rf ./BlueZ-master
-	rm ./BlueZ-master-4e926f8.zip
+	rm -rf ./bluez-5.50*
 	echo "** Delete symlink and bin for old bluetoothd"
 	rm /usr/sbin/bluetoothd
 	rm -rf /usr/lib/bluetooth
@@ -317,12 +271,12 @@ STEP_3B_4 () {
 	ln -s /usr/libexec/bluetooth/bluetoothd /usr/sbin/bluetoothd
 
 	echo "** Compile bluez-alsa"
-	# Compile bluealsa 1.2.0
-	# 2018-04-16 commit 88aefeea56b7ea20668796c2c7a8312bf595eef4
-	cp ./rel-stretch/other/bluetooth/bluez-alsa-master-88aefee.zip ./
-	unzip bluez-alsa-master-88aefee.zip
-	echo "Ignore warnings from autoreconf and configure"
+	# Compile bluez-alsa 1.3.1 
+	# 2019-03-10 commit d73282b25c613fff445ad3818a963e958b23cc20
+	cp ./rel-stretch/other/bluetooth/bluez-alsa-master-d73282b.zip ./
+	unzip -q bluez-alsa-master-d73282b.zip
 	cd bluez-alsa-master
+	echo "** NOTE: Ignore warnings from autoreconf and configure"
 	autoreconf --install
 	mkdir build
 	cd build
@@ -342,8 +296,7 @@ STEP_3B_4 () {
 	fi
 
 	cd ../..
-	rm -rf ./bluez-alsa-master
-	rm ./bluez-alsa-master-88aefee.zip
+	rm -rf ./bluez-alsa-master*
 
 	echo "** Check for default bluealsa.service file"
 	if [ ! -f /lib/systemd/system/bluealsa.service ] ; then
@@ -399,22 +352,21 @@ STEP_5_6 () {
 	echo
 
 	echo "** Compile WiringPi"
-	cp ./rel-stretch/other/wiringpi/wiringPi-2.46-8d188fa0.tar.gz ./
+	cp ./rel-stretch/other/wiringpi/wiringPi-2.50-36fb7f1.tar.gz ./
 
-	tar xfz wiringPi-2.46-8d188fa0.tar.gz
+	tar xfz wiringPi-2.50-36fb7f1.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
 
-	cd wiringPi-2.46-8d188fa0
+	cd wiringPi-36fb7f1
 	./build
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Compile failed"
 	fi
 	
 	cd ..
-	rm -rf wiringPi-2.46-8d188fa0
-	rm -f wiringPi-2.46-8d188fa0.tar.gz
+	rm -rf wiringPi*
 
 	echo "** Compile rotary encoder driver"
 	cp rel-stretch/other/rotenc/rotenc.c ./
@@ -499,12 +451,9 @@ STEP_7_8 () {
 	echo "** Create directories"
 	mkdir /var/local/www
 	mkdir /var/local/www/commandw
-	mkdir /var/local/www/cssw
-	mkdir /var/local/www/jsw
 	mkdir /var/local/www/imagesw
 	mkdir /var/local/www/imagesw/toggle
 	mkdir /var/local/www/db
-	mkdir /var/local/www/templatesw
 	chmod -R 0755 /var/local/www
 	mkdir /var/lib/mpd/music/RADIO
 
@@ -570,8 +519,8 @@ STEP_7_8 () {
 	chmod 0755 /home/pi/*.sh
 	chmod 0755 /home/pi/*.php
 	chmod 0755 /var/www/command/*
-	/var/www/command/util.sh emerald "27ae60" "rgba(39,174,96,0.71)"
-	sqlite3 /var/local/www/db/moode-sqlite3.db "update cfg_system set value='Emerald' where param='themecolor'"
+	sqlite3 /var/local/www/db/moode-sqlite3.db "CREATE TRIGGER ro_columns BEFORE UPDATE OF param, value, [action] ON cfg_hash FOR EACH ROW BEGIN SELECT RAISE(ABORT, 'read only'); END;"
+	sqlite3 /var/local/www/db/moode-sqlite3.db "UPDATE cfg_system SET value='Emerald' WHERE param='accent_color'"
 
 	echo "** Establish permissions for service files"
 	echo "** MPD"
@@ -590,6 +539,8 @@ STEP_7_8 () {
 	chmod 0644 /etc/udev/rules.d/*
 	echo "Localui"
 	chmod 0644 /lib/systemd/system/localui.service
+	echo "SSH term server"
+	sudo chmod 0644 /lib/systemd/system/shellinabox.service 
 
 	echo "** Services are started by moOde Worker so lets disable them here"
 	systemctl daemon-reload
@@ -603,10 +554,11 @@ STEP_7_8 () {
 	chmod 0644 /lib/systemd/system/upmpdcli.service
 	systemctl disable upmpdcli.service
 
-	echo "** Reset dir permissions for var local"
+	echo "** Reset permissions for var and usr local"
 	chmod -R 0755 /var/local/www
 	chmod -R 0777 /var/local/www/db
 	chmod -R ug-s /var/local/www
+	chmod -R 0755 /usr/local/bin
 
 	echo "** Initial permissions for certain files. These also get set during moOde Worker startup"
 	chmod 0777 /var/local/www/playhistory.log
@@ -723,6 +675,8 @@ STEP_11 () {
 			DEBIAN_FRONTEND=noninteractive apt-get clean
 			echo "** Reboot 7"
 			echo "12-13" > $MOSBUILD_STEP
+			echo "Fix for missing 4.19.y regulatory.db files"
+			sudo cp ./rel-stretch/other/firmware/regulatory.db* /lib/firmware
 			sync
 			reboot
 		fi
@@ -919,7 +873,7 @@ COMP_C1_C7 () {
 	
 	echo "** Install conf file"
 	cd ..
-	cp ./rel-stretch/usr/local/etc/shairport-sync.conf /usr/local/etc
+	cp ./rel-stretch/etc/shairport-sync.conf /etc
 	rm -rf ./shairport-sync
 
 	echo "** Cleanup"

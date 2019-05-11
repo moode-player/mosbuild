@@ -15,35 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2017-12-08 TC 	v1.0 adapted Koda59 original script
-# 2017-12-17 Koda59 v1.1
-# - fix USB Multi-Port Hub ( Extend test in getTargetUsb for multi devices to select device from parts )
-# - fix Multi language in freespace test
-# - fix possibly write test failed
-# 2017-12-20 Koda59 v2.0 add method without USB SD Card reader (All from cuurent SD - fresh Raspbian)
-# 2017-12-23 Koda59 v2.1 no changes on mosbuild.sh, only at mosbuild_worker.sh for powering on Act LED during build
-# 2017-12-24 Koda59 v2.11
-# - add total time to build to the mosbuild.log
-# - add auto config SSID & PSK for the wifi if already configured
-# - add aliase commands to monitor build process
-# 2018-01-19 TC 	v2.2 simplified and adapted
-# 2018-04-02 TC 	v2.4
-# - sync with Build Recipe ver
-# - add date entry prompt for direct build
-# - use >> to fix echo "country=" > part1/wpa_supplicant.conf
-# - update completion banners
-# - chg wifi country from GB to US
-# - create new etc/rc.local that unblocks wifi
-# 2018-07-11 TC 	v2.5
-# - sync with Build Recipe ver
-# - bump to 2018-06-27 Stretch Lite
-# 2018-09-27		v2.6
-# - bump version
-# 2018-12-09		v2.7
-# - bump version
+# 2019-05-07 TC moOde 5.2
+#
 #
       
-VER="v2.7"
+VER="v2.8"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment
