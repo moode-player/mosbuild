@@ -240,6 +240,7 @@ STEP_3B_4 () {
 
 	echo "** Disable hostapd and dnsmasq services"
 	systemctl daemon-reload
+	systemctl unmask hostapd
 	systemctl disable hostapd
 	systemctl disable dnsmasq
 
