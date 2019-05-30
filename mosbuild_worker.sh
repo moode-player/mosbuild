@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 22019-05-07 TC moOde 5.2
+# 2019-05-30 TC moOde 5.3
 #
 #
  
@@ -197,7 +197,7 @@ STEP_3B_4 () {
 	DEBIAN_FRONTEND=noninteractive  apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 memcached php-memcache php7.0-gd mpc \
 		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools tcpdump shellinabox \
 		samba smbclient udisks-glue ntfs-3g exfat-fuse git inotify-tools libav-tools avahi-utils ninja-build \
-		python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-4 libzen0v5 libmediainfo-dev libzen-dev
+		python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-4 libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi													 
@@ -237,6 +237,10 @@ STEP_3B_4 () {
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: install failed"
 	fi
+
+	echo "** Install precompiled hostapd 2.7 binaries"
+	mv ./rel-stretch/other/hostapd/hostapd-2.7 /usr/sbin/hostapd
+	mv ./rel-stretch/other/hostapd/hostapd_cli-2.7 /usr/sbin/hostapd_cli
 
 	echo "** Disable hostapd and dnsmasq services"
 	systemctl daemon-reload
