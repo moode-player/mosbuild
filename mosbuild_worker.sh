@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2019-05-30 TC moOde 5.3
+# 2019-06-12 TC moOde 5.3.1
 #
 #
- 
-VER="v2.8"
+
+VER="v2.10"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -62,7 +62,7 @@ STEP_2 () {
 	waitForRc 10
 	cd $MOSBUILD_DIR
 	timedatectl set-timezone "America/Detroit"
-    
+
     if [ -z "$DIRECT" ] ; then
 	  echo
 	  echo "////////////////////////////////////////////////////////////////"
@@ -71,7 +71,7 @@ STEP_2 () {
 	  echo "//"
 	  echo "////////////////////////////////////////////////////////////////"
 	  echo
-    else 
+    else
       echo "////////////////////////////////////////////////////////////////"
 	  echo "//"
 	  echo "// STEP 2 - Direct build so no need to expand Root partition"
@@ -79,7 +79,7 @@ STEP_2 () {
 	  echo "////////////////////////////////////////////////////////////////"
 	  echo
       sed -i "s/raspberry.*//" /etc/hosts
-    fi    
+    fi
 
 	local MOODE_REL_ZIP=`echo $MOODE_REL | awk -F"/" '{ print $NF }'`
 
@@ -95,23 +95,23 @@ STEP_2 () {
 		cancelBuild "** Error: download failed"
 	fi
 
-	echo "** Unzip release"                           
+	echo "** Unzip release"
 	unzip -o -q $MOODE_REL_ZIP
-	if [ $? -ne 0 ] ; then                                                                  
+	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: unzip failed"
-	fi 
+	fi
 	rm -f $MOODE_REL_ZIP
 
     if [ -z "$DIRECT" ] || [ `df -k --output=size / | tail -1` -lt 2500000 ] ; then
 	  echo "** Expand SDCard to 3GB"
-	  cp ./rel-stretch/www/command/resizefs.sh ./
+	  cp ./moode/www/command/resizefs.sh ./
 	  chmod 0755 resizefs.sh
 	  sed -i "/PART_END=/c\PART_END=+3000M" ./resizefs.sh
 	  ./resizefs.sh start
     fi
 
 	echo "** Install boot/config.txt"
-	cp ./rel-stretch/boot/config.txt.default /boot/config.txt
+	cp ./moode/boot/config.txt.default /boot/config.txt
 
     if [ -z "$DIRECT" ] ; then
 	  echo "** Cleanup"
@@ -154,7 +154,7 @@ STEP_3A () {
 	else
 		echo "** Configuring proxy for Internet access"
 		echo "Acquire::http::Proxy \"$http_proxy\";" > /etc/apt/apt.conf.d/10proxy
-        echo "Acquire::ForceIPv4 \"true\";" > /etc/apt/apt.conf.d/99force-ipv4      
+        echo "Acquire::ForceIPv4 \"true\";" > /etc/apt/apt.conf.d/99force-ipv4
 	fi
 
 	echo "** Update Raspbian package list"
@@ -200,25 +200,25 @@ STEP_3B_4 () {
 		python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-4 libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
-	fi													 
+	fi
 
 	echo "** Install meson"
-	cp ./rel-stretch/other/mpd/build-tools/meson-0.50.1.tar.gz ./
+	cp ./moode/other/mpd/build-tools/meson-0.50.1.tar.gz ./
 	tar xfz meson-0.50.1.tar.gz
 	cd meson-0.50.1
 	python3 setup.py install
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
-	fi													 
+	fi
 
 	cd ..
 	rm -rf meson-0.50.1*
 
 	echo "** Install mediainfo"
-	cp ./rel-stretch/other/mediainfo/mediainfo-18.12 /usr/local/bin/mediainfo
+	cp ./moode/other/mediainfo/mediainfo-18.12 /usr/local/bin/mediainfo
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
-	fi													 
+	fi
 
 	echo "** Disable shellinabox"
 	systemctl disable shellinabox
@@ -239,8 +239,8 @@ STEP_3B_4 () {
 	fi
 
 	echo "** Install precompiled hostapd 2.7 binaries"
-	mv ./rel-stretch/other/hostapd/hostapd-2.7 /usr/sbin/hostapd
-	mv ./rel-stretch/other/hostapd/hostapd_cli-2.7 /usr/sbin/hostapd_cli
+	mv ./moode/other/hostapd/hostapd-2.7 /usr/sbin/hostapd
+	mv ./moode/other/hostapd/hostapd_cli-2.7 /usr/sbin/hostapd_cli
 
 	echo "** Disable hostapd and dnsmasq services"
 	systemctl daemon-reload
@@ -252,7 +252,7 @@ STEP_3B_4 () {
 	DEBIAN_FRONTEND=noninteractive apt-get -y install bluez-firmware pi-bluetooth \
 		dh-autoreconf expect libdbus-1-dev libortp-dev libbluetooth-dev libasound2-dev \
 		libusb-dev libglib2.0-dev libudev-dev libical-dev libreadline-dev libsbc1 libsbc-dev
-	
+
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: install failed"
 	fi
@@ -260,7 +260,7 @@ STEP_3B_4 () {
 	echo "** Compile bluez"
 	# Compile bluez 5.50
 	# 2018-06-01 commit 8994b7f2bf817a7fea677ebe18f690a426088367
-	cp ./rel-stretch/other/bluetooth/bluez-5.50.tar.xz ./
+	cp ./moode/other/bluetooth/bluez-5.50.tar.xz ./
 	tar xf bluez-5.50.tar.xz >/dev/null
 	cd bluez-5.50
 	autoreconf --install
@@ -276,9 +276,9 @@ STEP_3B_4 () {
 	ln -s /usr/libexec/bluetooth/bluetoothd /usr/sbin/bluetoothd
 
 	echo "** Compile bluez-alsa"
-	# Compile bluez-alsa 1.3.1 
+	# Compile bluez-alsa 1.3.1
 	# 2019-03-10 commit d73282b25c613fff445ad3818a963e958b23cc20
-	cp ./rel-stretch/other/bluetooth/bluez-alsa-master-d73282b.zip ./
+	cp ./moode/other/bluetooth/bluez-alsa-master-d73282b.zip ./
 	unzip -q bluez-alsa-master-d73282b.zip
 	cd bluez-alsa-master
 	echo "** NOTE: Ignore warnings from autoreconf and configure"
@@ -357,7 +357,7 @@ STEP_5_6 () {
 	echo
 
 	echo "** Compile WiringPi"
-	cp ./rel-stretch/other/wiringpi/wiringPi-2.50-36fb7f1.tar.gz ./
+	cp ./moode/other/wiringpi/wiringPi-2.50-36fb7f1.tar.gz ./
 
 	tar xfz wiringPi-2.50-36fb7f1.tar.gz
 	if [ $? -ne 0 ] ; then
@@ -369,12 +369,12 @@ STEP_5_6 () {
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Compile failed"
 	fi
-	
+
 	cd ..
 	rm -rf wiringPi*
 
 	echo "** Compile rotary encoder driver"
-	cp rel-stretch/other/rotenc/rotenc.c ./
+	cp moode/other/rotenc/rotenc.c ./
 	gcc -std=c99 rotenc.c -orotenc -lwiringPi
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Compile failed"
@@ -391,7 +391,7 @@ STEP_5_6 () {
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo
-	
+
 	cd $MOSBUILD_DIR
 
 	echo "** Create MPD runtime environment"
@@ -405,7 +405,7 @@ STEP_5_6 () {
 	touch /var/log/mpd/log
 	chmod 644 /var/log/mpd/log
 	chown -R mpd:audio /var/log/mpd
-	cp ./rel-stretch/mpd/mpd.conf.default /etc/mpd.conf
+	cp ./moode/mpd/mpd.conf.default /etc/mpd.conf
 	chown mpd:audio /etc/mpd.conf
 	chmod 0666 /etc/mpd.conf
 
@@ -419,10 +419,10 @@ STEP_5_6 () {
 		libwrap0-dev libboost-dev libicu-dev libglib2.0-dev
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: install failed"
-	fi 
+	fi
 
 	echo "** Install pre-compiled binary"
-	cp ./rel-stretch/other/mpd/$MPD_BIN /usr/local/bin/mpd
+	cp ./moode/other/mpd/$MPD_BIN /usr/local/bin/mpd
 
 	echo "** Cleanup"
 	DEBIAN_FRONTEND=noninteractive apt-get clean
@@ -438,7 +438,7 @@ STEP_5_6 () {
 	echo "** Reboot 4"
 	echo "7-8" > $MOSBUILD_STEP
 	sync
-	reboot  
+	reboot
 }
 
 STEP_7_8 () {
@@ -470,7 +470,7 @@ STEP_7_8 () {
 	ln -s /mnt/NAS /var/lib/mpd/music/NAS
 	ln -s /mnt/SDCARD /var/lib/mpd/music/SDCARD
 	ln -s /media /var/lib/mpd/music/USB
-	
+
 	echo "** Create logfiles"
 	touch /var/log/moode.log
 	chmod 0666 /var/log/moode.log
@@ -478,16 +478,16 @@ STEP_7_8 () {
 	chmod 0666 /var/log/php_errors.log
 
 	echo "** Create misc files"
-	cp ./rel-stretch/mpd/sticker.sql /var/lib/mpd
-	cp -r "./rel-stretch/other/sdcard/Stereo Test/" /var/lib/mpd/music/SDCARD/
-	cp ./rel-stretch/network/interfaces.default /etc/network/interfaces
-	cp ./rel-stretch/network/dhcpcd.conf.default /etc/dhcpcd.conf
-	cp ./rel-stretch/network/hostapd.conf.default /etc/hostapd/hostapd.conf
-	cp ./rel-stretch/var/local/www/db/moode-sqlite3.db.default /var/local/www/db/moode-sqlite3.db
+	cp ./moode/mpd/sticker.sql /var/lib/mpd
+	cp -r "./moode/other/sdcard/Stereo Test/" /var/lib/mpd/music/SDCARD/
+	cp ./moode/network/interfaces.default /etc/network/interfaces
+	cp ./moode/network/dhcpcd.conf.default /etc/dhcpcd.conf
+	cp ./moode/network/hostapd.conf.default /etc/hostapd/hostapd.conf
+	cp ./moode/var/local/www/db/moode-sqlite3.db.default /var/local/www/db/moode-sqlite3.db
 	# if we are building over wifi, wpa_supplicant will already be configred
 	# with ssid and pwd so we need to update cfg_network to match.
 	if [ -z $SSID ] ; then
-		cp ./rel-stretch/network/wpa_supplicant.conf.default /etc/wpa_supplicant/wpa_supplicant.conf
+		cp ./moode/network/wpa_supplicant.conf.default /etc/wpa_supplicant/wpa_supplicant.conf
 	else
 		sqlite3 /var/local/www/db/moode-sqlite3.db "UPDATE cfg_network SET wlanssid='$SSID', wlanpwd='$PSK' WHERE id=2"
 	fi
@@ -511,16 +511,16 @@ STEP_7_8 () {
 	echo "** Install application sources and configs"
 	rm /var/lib/mpd/music/RADIO/* 2> /dev/null
 	rm -rf /var/www/images/radio-logos/ 2> /dev/null
-	cp ./rel-stretch/mpd/RADIO/* /var/lib/mpd/music/RADIO
-	cp ./rel-stretch/mpd/playlists/* /var/lib/mpd/playlists
-	cp -r ./rel-stretch/etc/* /etc
-	cp -r ./rel-stretch/home/* /home/pi
+	cp ./moode/mpd/RADIO/* /var/lib/mpd/music/RADIO
+	cp ./moode/mpd/playlists/* /var/lib/mpd/playlists
+	cp -r ./moode/etc/* /etc
+	cp -r ./moode/home/* /home/pi
 	mv /home/pi/dircolors /home/pi/.dircolors
 	mv /home/pi/xinitrc.default /home/pi/.xinitrc
-	cp -r ./rel-stretch/lib/* /lib
-	cp -r ./rel-stretch/usr/* /usr
-	cp -r ./rel-stretch/var/* /var
-	cp -r ./rel-stretch/www/* /var/www
+	cp -r ./moode/lib/* /lib
+	cp -r ./moode/usr/* /usr
+	cp -r ./moode/var/* /var
+	cp -r ./moode/www/* /var/www
 	chmod 0755 /home/pi/*.sh
 	chmod 0755 /home/pi/*.php
 	chmod 0755 /var/www/command/*
@@ -545,7 +545,7 @@ STEP_7_8 () {
 	echo "Localui"
 	chmod 0644 /lib/systemd/system/localui.service
 	echo "SSH term server"
-	sudo chmod 0644 /lib/systemd/system/shellinabox.service 
+	sudo chmod 0644 /lib/systemd/system/shellinabox.service
 
 	echo "** Services are started by moOde Worker so lets disable them here"
 	systemctl daemon-reload
@@ -588,7 +588,7 @@ STEP_7_8 () {
 	else
 		cancelBuild "** Error: Update sudoers file failed"
 	fi
-	
+
 	echo "** Reboot 5"
 	echo "9-10" > $MOSBUILD_STEP
 	sync
@@ -607,7 +607,7 @@ STEP_9_10 () {
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
-	echo "** Install alsaequal" 
+	echo "** Install alsaequal"
 	amixer -D alsaequal > /dev/null
 
 	echo "** Establish permissions"
@@ -636,7 +636,7 @@ STEP_9_10 () {
 		echo "//"
 		echo "////////////////////////////////////////////////////////////////"
 		echo
-	
+
 		echo "** Add squashfs mount to /etc/fstab"
 		echo "/var/local/moode.sqsh   /var/www        squashfs        ro,defaults     0       0" >> /etc/fstab
 
@@ -682,7 +682,7 @@ STEP_11 () {
 			echo "** Reboot 7"
 			echo "12-13" > $MOSBUILD_STEP
 			echo "Fix for missing 4.19.y regulatory.db files"
-			sudo cp ./rel-stretch/other/firmware/regulatory.db* /lib/firmware
+			sudo cp ./moode/other/firmware/regulatory.db* /lib/firmware
 			sync
 			reboot
 		fi
@@ -750,10 +750,10 @@ STEP_12_13 () {
 	rm /var/lib/dhcpcd5/*
 
 	echo "** Reset network config to defaults "
-	cp ./rel-stretch/network/interfaces.default /etc/network/interfaces
-#	cp ./rel-stretch/network/wpa_supplicant.conf.default /etc/wpa_supplicant/wpa_supplicant.conf
-	cp ./rel-stretch/network/dhcpcd.conf.default /etc/dhcpcd.conf
-	cp ./rel-stretch/network/hostapd.conf.default /etc/hostapd/hostapd.conf
+	cp ./moode/network/interfaces.default /etc/network/interfaces
+#	cp ./moode/network/wpa_supplicant.conf.default /etc/wpa_supplicant/wpa_supplicant.conf
+	cp ./moode/network/dhcpcd.conf.default /etc/dhcpcd.conf
+	cp ./moode/network/hostapd.conf.default /etc/hostapd/hostapd.conf
 
 	if [ -z "$ADDL_COMPONENTS" ] ; then
 		echo "** Additional components option not selected"
@@ -854,7 +854,7 @@ COMP_C1_C7 () {
 	rm -rf ./mpdas
 
 	echo "** Install conf file"
-	cp ./rel-stretch/usr/local/etc/mpdasrc.default /usr/local/etc/mpdasrc
+	cp ./moode/usr/local/etc/mpdasrc.default /usr/local/etc/mpdasrc
 	chmod 0755 /usr/local/etc/mpdasrc
 
 	echo
@@ -875,11 +875,11 @@ COMP_C1_C7 () {
 	fi
 
 	echo "** Install pre-compiled binary"
-	cp ./rel-stretch/other/shairport-sync/$SPS_BIN /usr/local/bin/shairport-sync
-	
+	cp ./moode/other/shairport-sync/$SPS_BIN /usr/local/bin/shairport-sync
+
 	echo "** Install conf file"
 	cd ..
-	cp ./rel-stretch/etc/shairport-sync.conf /etc
+	cp ./moode/etc/shairport-sync.conf /etc
 	rm -rf ./shairport-sync
 
 	echo "** Cleanup"
@@ -905,7 +905,7 @@ COMP_C1_C7 () {
 	fi
 
 	echo "** Install pre-compiled binary"
-	cp ./rel-stretch/other/librespot/$LR_BIN /usr/local/bin/librespot
+	cp ./moode/other/librespot/$LR_BIN /usr/local/bin/librespot
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -918,7 +918,7 @@ COMP_C1_C7 () {
 	cd $MOSBUILD_DIR
 
 	echo "** Install pre-compiled binary"
-	cp ./rel-stretch/other/squeezelite/$SL_BIN /usr/local/bin/squeezelite
+	cp ./moode/other/squeezelite/$SL_BIN /usr/local/bin/squeezelite
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -938,7 +938,7 @@ COMP_C1_C7 () {
 	fi
 
 	echo "** Compile Libupnp jfd5"
-	cp ./rel-stretch/other/upmpdcli/libupnp-1.6.20.jfd5.tar.gz ./
+	cp ./moode/other/upmpdcli/libupnp-1.6.20.jfd5.tar.gz ./
 	tar xfz ./libupnp-1.6.20.jfd5.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
@@ -960,9 +960,9 @@ COMP_C1_C7 () {
 	cd ..
 	rm -rf ./libupnp-1.6.20.jfd5
 	rm libupnp-1.6.20.jfd5.tar.gz
-	
-	echo "** Compile Libupnpp"	
-	cp ./rel-stretch/other/upmpdcli/libupnpp-0.16.0.tar.gz ./
+
+	echo "** Compile Libupnpp"
+	cp ./moode/other/upmpdcli/libupnpp-0.16.0.tar.gz ./
 	tar xfz ./libupnpp-0.16.0.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
@@ -984,10 +984,10 @@ COMP_C1_C7 () {
 	cd ..
 	rm -rf ./libupnpp-0.16.0
 	rm libupnpp-0.16.0.tar.gz
-		
-	echo "** Compile Upmpdcli"	
-	cp ./rel-stretch/other/upmpdcli/upmpdcli-code-1.2.16.tar.gz ./
-	tar xfz ./upmpdcli-code-1.2.16.tar.gz 
+
+	echo "** Compile Upmpdcli"
+	cp ./moode/other/upmpdcli/upmpdcli-code-1.2.16.tar.gz ./
+	tar xfz ./upmpdcli-code-1.2.16.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
@@ -1012,17 +1012,17 @@ COMP_C1_C7 () {
 	cd ..
 	rm -rf ./upmpdcli-code-1.2.16
 	rm upmpdcli-code-1.2.16.tar.gz
-	
+
 	echo "** Configure runtime env"
 	useradd upmpdcli
-	cp ./rel-stretch/lib/systemd/system/upmpdcli.service /lib/systemd/system
-	cp ./rel-stretch/etc/upmpdcli.conf /etc
+	cp ./moode/lib/systemd/system/upmpdcli.service /lib/systemd/system
+	cp ./moode/etc/upmpdcli.conf /etc
 	chmod 0644 /etc/upmpdcli.conf
 	systemctl daemon-reload
 	systemctl disable upmpdcli
-	
-	echo "** Compile Upexplorer"	
-	cp -r ./rel-stretch/other/libupnppsamples-code/ ./
+
+	echo "** Compile Upexplorer"
+	cp -r ./moode/other/libupnppsamples-code/ ./
 	cd libupnppsamples-code
 	./autogen.sh
 	if [ $? -ne 0 ] ; then
@@ -1050,7 +1050,7 @@ COMP_C1_C7 () {
 	fi
 
 	echo "** Patch for upmpdcli gmusic plugin"
-	cp ./rel-stretch/other/upmpdcli/session.py /usr/share/upmpdcli/cdplugins/gmusic
+	cp ./moode/other/upmpdcli/session.py /usr/share/upmpdcli/cdplugins/gmusic
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -1102,7 +1102,7 @@ COMP_C8_C9 () {
 
 	echo
 	echo "Configure Chrome Browser"
-	echo 
+	echo
 	echo "NOTE: These steps are performed AFTER actually starting local display via System config,"
 	echo "rebooting and then accessing moOde on the local display."
 	echo
@@ -1126,7 +1126,7 @@ COMP_C8_C9 () {
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Download failed"
 	fi
-	unzip -q master.zip 
+	unzip -q master.zip
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Unzip failed"
 	fi
@@ -1151,7 +1151,7 @@ finalCleanup () {
 	cd $MOSBUILD_DIR
 
 	echo "** Remove mosbuild"
-	cp ./rel-stretch/etc/rc.local /etc/rc.local
+	cp ./moode/etc/rc.local /etc/rc.local
 	cd ..
 	rm -rf $MOSBUILD_DIR
 	echo "** Clean package cache"
@@ -1200,7 +1200,7 @@ loadProperties
 
 STEP=`cat $MOSBUILD_STEP`
 case $STEP in
-	2) 
+	2)
 		STEP_2
 		;;
 	3A)

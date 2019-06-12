@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2019-05-30 TC moOde 5.3
+# 2019-06-12 TC moOde 5.3.1
 #
 #
-      
-VER="v2.8"
+
+VER="v2.10"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment
@@ -93,8 +93,8 @@ mainBanner () {
 #
 # direct build
 #
-directYBanner () {  
-	echo  
+directYBanner () {
+	echo
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
 	echo "// STEP 1 - Writing OS directly to boot SDCard"
@@ -124,7 +124,7 @@ directYBanner () {
 # non-direct build
 #
 directNBanner () {
-	echo   
+	echo
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
 	echo "// STEP 1 - Writing OS to second USB-SDCard"
@@ -165,7 +165,7 @@ testUnzip () {
 		if [ $? -ne 0 ] ; then
 			cancelBuild "** Error: Install failed"
 		fi
-	fi    
+	fi
 }
 
 getTargetUsb () {
@@ -177,10 +177,10 @@ getTargetUsb () {
 	if [ $YN = "n" ] ; then
 		cancelBuild
 	fi
-	
+
 	sleep 2
 	ls -tr /dev/disk/by-id 2> /dev/null | sort > mosbuild_after_usb.txt
-	DEVICE=`comm -13 mosbuild_befor_usb.txt mosbuild_after_usb.txt`	
+	DEVICE=`comm -13 mosbuild_befor_usb.txt mosbuild_after_usb.txt`
 	if [ -z "$DEVICE" ] ; then
 		cancelBuild "** Error: Unable to find USB drive"
 	fi
@@ -255,7 +255,7 @@ getOptions () {
 	LATEST_KERNEL=y
 	ADDL_COMPONENTS=y
 }
-    
+
 confirmBuild () {
 	echo "** Configuration complete:"
 	echo
@@ -333,37 +333,37 @@ addlComponents () {
 
 testInternet () {
 	echo "** Test Internet connection"
-	if [ ! -z "$HTTP_PROXY" ] ; then 
+	if [ ! -z "$HTTP_PROXY" ] ; then
 		export http_proxy=$HTTP_PROXY
 	fi
 	wget -q http://www.google.com
 	if [ $? -eq 0 ] ; then
 		rm -f index.html
 	else
-		if [ ! -z "$HTTP_PROXY" ] ; then 
+		if [ ! -z "$HTTP_PROXY" ] ; then
 			echo "** Proxy url: $HTTP_PROXY"
 		fi
 		cancelBuild "** Error: Unable to detect Internet connection"
 	fi
 }
 
-dnldHelpers () {  	
+dnldHelpers () {
 	echo "** Download helper files"
 	wget -q $DOWNLOAD_URL/mosbuild.properties -O mosbuild.properties
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Unable to download Properties file"
-	else 
+	else
 		wget -q $DOWNLOAD_URL/mosbuild_worker.sh -O mosbuild_worker.sh
 		if [ $? -ne 0 ] ; then
 			cancelBuild "** Error: Unable to download Worker file"
-		fi 
+		fi
 	fi
 }
 
 updProperties () {
 	echo "** Add options to properties file"
 	echo "START_TIME=$(date +%s)" >> mosbuild.properties
-	
+
 	if [ ! -z "$HTTP_PROXY" ] ; then
 		echo "export http_proxy=$HTTP_PROXY" >> mosbuild.properties
 		echo "export https_proxy=$HTTPS_PROXY" >> mosbuild.properties
@@ -397,7 +397,7 @@ loadEnv () {
 
 dnldRaspbian () {
 	local RASPBIAN_ZIP=`echo $RASPBIAN_DNLD | awk -F"/" '{ print $NF }'`
-	echo "** Download Rasbian Stretch Lite $RASPBIAN_ZIP"  
+	echo "** Download Rasbian Stretch Lite $RASPBIAN_ZIP"
 	cd mosbuild
 	wget -q --show-progress $RASPBIAN_DNLD -O $RASPBIAN_ZIP
 	if [ $? -ne 0 ] ; then
@@ -408,14 +408,14 @@ dnldRaspbian () {
 
 unzipRaspbian () {
 	local RASPBIAN_ZIP=`echo $RASPBIAN_DNLD | awk -F"/" '{ print $NF }'`
-	
+
 	echo "** Unzip $RASPBIAN_ZIP"
 	cd mosbuild
 	unzip -o $RASPBIAN_ZIP
 	if [ $? -ne 0 ] ; then
 		rm -f $RASPBIAN_ZIP
 		cancelBuild "** Error: Unzip failed"
-	else 
+	else
 		rm -f $RASPBIAN_ZIP
 	fi
 	cd ..
@@ -427,7 +427,7 @@ mountImage () {
 	mkdir part2
 	LOOPDEV=$(sudo losetup -f)
 	losetup -P $LOOPDEV mosbuild/$RASPBIAN_IMG
-	
+
 	mount -t vfat "$LOOPDEV"p1 part1
 	if [ $? -ne 0 ] ; then
 		rmdir part1
@@ -505,7 +505,7 @@ modifyImage () {
 	sed -i "s/raspberrypi/moode/" part2/etc/hosts
 	cp /etc/fake-hwclock.data part2/etc/ 2> /dev/null
 	echo "** Change host name to moode"
-    
+
     echo "alias moslog=\"tail -f ~/mosbuild.log\"" >> part2$MOSBUILD_DIR/../.bash_aliases
     echo "alias mosbrief=\"cat ~/mosbuild.log | grep 'COMPONENT\|STEP\|Compile \| END\|Error'\"" >> part2$MOSBUILD_DIR/../.bash_aliases
     echo "alias moslast=\"tail -25 ~/mosbuild.log\"" >> part2$MOSBUILD_DIR/../.bash_aliases
@@ -517,7 +517,7 @@ modifyImage () {
 		rm part1
 		rm part2
 	fi
-    
+
 	echo "** Flush cached disk writes"
 	sync
 }
@@ -528,10 +528,10 @@ umountImage () {
 	umount part1
 	umount part2
 	rmdir part1
-	rmdir part2 
+	rmdir part2
 }
 
-writeImage () { 
+writeImage () {
 	echo "** Write OS image to USB-SDCard drive on $USBDEV"
 	dd if=mosbuild/$RASPBIAN_IMG of=$USBDEV
 	if [ $? -eq 0 ] ; then
@@ -571,7 +571,7 @@ cleanUp () {
 	rm -f mosbuild_befor_usb.txt
 	rm -f mosbuild_after_usb.txt
 
-	if [ -z "$DIRECT" ] ; then 
+	if [ -z "$DIRECT" ] ; then
 		return
 	else
 		echo "****************************************************************"
@@ -602,7 +602,7 @@ cleanUp () {
 ##//////////////////////////////////////////////////////////////
 
 mainBanner
-if [ -z "$DIRECT" ] ; then 
+if [ -z "$DIRECT" ] ; then
 	directNBanner
 	testUnzip
 	getTargetUsb
@@ -632,7 +632,7 @@ if [ -z "$DIRECT" ] ; then
 	modifyImage
 	umountImage
 	writeImage
-else 
+else
 	modifyImage
 fi
 cleanUp
