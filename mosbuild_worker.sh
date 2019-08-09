@@ -15,11 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2019-06-12 TC moOde 5.3.1
-#
+# 2019-08-08 TC moOde 6.0.0
 #
 
-VER="v2.10"
+VER="v2.11"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -40,6 +39,7 @@ cancelBuild () {
 #	cd /home/pi
 #	rm -rf mosbuild 2> /dev/null
 #	rm -f *.zip 2> /dev/null
+	apt-get clean
     #### Power off Act LED
     echo 0 >/sys/class/leds/led0/brightness
     sleep 1
@@ -67,7 +67,7 @@ STEP_2 () {
 	  echo
 	  echo "////////////////////////////////////////////////////////////////"
 	  echo "//"
-	  echo "// STEP 2 - Expand the root partition to 3GB"
+	  echo "// STEP 2 - Expand the root partition to 3.5GB"
 	  echo "//"
 	  echo "////////////////////////////////////////////////////////////////"
 	  echo
@@ -103,10 +103,10 @@ STEP_2 () {
 	rm -f $MOODE_REL_ZIP
 
     if [ -z "$DIRECT" ] || [ `df -k --output=size / | tail -1` -lt 2500000 ] ; then
-	  echo "** Expand SDCard to 3GB"
+	  echo "** Expand SDCard to 3.5GB"
 	  cp ./moode/www/command/resizefs.sh ./
 	  chmod 0755 resizefs.sh
-	  sed -i "/PART_END=/c\PART_END=+3000M" ./resizefs.sh
+	  sed -i "/PART_END=/c\PART_END=+3500M" ./resizefs.sh
 	  ./resizefs.sh start
     fi
 
@@ -158,7 +158,7 @@ STEP_3A () {
 	fi
 
 	echo "** Update Raspbian package list"
-	DEBIAN_FRONTEND=noninteractive apt-get update
+	DEBIAN_FRONTEND=noninteractive apt-get update --allow-releaseinfo-change
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: update failed"
 	fi
@@ -169,6 +169,7 @@ STEP_3A () {
 		cancelBuild "** Error: upgrade failed"
 	fi
 
+	apt-get clean
 	echo "** Reboot 2"
 	echo "3B-4" > $MOSBUILD_STEP
 	sync
@@ -188,18 +189,23 @@ STEP_3B_4 () {
 	echo
 
 	echo "** Refresh Raspbian package list"
-	DEBIAN_FRONTEND=noninteractive apt-get update
+	DEBIAN_FRONTEND=noninteractive apt-get update --allow-releaseinfo-change
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: refresh failed"
 	fi
 
 	echo "** Install core packages"
-	DEBIAN_FRONTEND=noninteractive  apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 memcached php-memcache php7.0-gd mpc \
-		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools tcpdump shellinabox \
-		samba smbclient udisks-glue ntfs-3g exfat-fuse git inotify-tools libav-tools avahi-utils ninja-build \
-		python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-4 libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind
+	DEBIAN_FRONTEND=noninteractive apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 php7.3-gd mpc \
+		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools shellinabox samba smbclient ntfs-3g \
+		exfat-fuse git inotify-tools ffmpeg avahi-utils ninja-build python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-6a \
+		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
+	fi
+
+	DEBIAN_FRONTEND=noninteractive apt-get clean
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Cleanup failed"
 	fi
 
 	echo "** Install meson"
@@ -214,14 +220,45 @@ STEP_3B_4 () {
 	cd ..
 	rm -rf meson-0.50.1*
 
+	DEBIAN_FRONTEND=noninteractive apt-get clean
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Cleanup failed"
+	fi
+
 	echo "** Install mediainfo"
 	cp ./moode/other/mediainfo/mediainfo-18.12 /usr/local/bin/mediainfo
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi
 
-	echo "** Disable shellinabox"
+	echo "** Install udisks-glue libs"
+	DEBIAN_FRONTEND=noninteractive apt-get -y install libatasmart4 libdbus-glib-1-2 libgudev-1.0-0 \
+		libsgutils2-2 libdevmapper-event1.02.1 libconfuse-dev libdbus-glib-1-dev
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Install failed"
+	fi
+
+	echo "** Install udisks-glue packages"
+	dpkg -i ./moode/other/udisks-glue/liblvm2app2.2_2.02.168-2_armhf.deb
+	dpkg -i ./moode/other/udisks-glue/udisks_1.0.5-1+b1_armhf.deb
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Install failed"
+	fi
+
+	echo "** Install udisks-glue pre-compiled binary"
+	cp ./moode/other/udisks-glue/udisks-glue-1.3.5-70376b7 /usr/bin/udisks-glue
+
+	echo "** Autoremove PHP 7.2"
+	DEBIAN_FRONTEND=noninteractive apt-get -y autoremove
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Autoremove PHP 7.2 failed"
+	fi
+
+	echo "** Systemd enable/disable"
+	systemctl enable haveged
 	systemctl disable shellinabox
+	systemctl disable phpsessionclean.service
+	systemctl disable phpsessionclean.timer
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -238,10 +275,6 @@ STEP_3B_4 () {
 		cancelBuild "** Error: install failed"
 	fi
 
-	echo "** Install precompiled hostapd 2.7 binaries"
-	mv ./moode/other/hostapd/hostapd-2.7 /usr/sbin/hostapd
-	mv ./moode/other/hostapd/hostapd_cli-2.7 /usr/sbin/hostapd_cli
-
 	echo "** Disable hostapd and dnsmasq services"
 	systemctl daemon-reload
 	systemctl unmask hostapd
@@ -255,6 +288,11 @@ STEP_3B_4 () {
 
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: install failed"
+	fi
+
+	DEBIAN_FRONTEND=noninteractive apt-get clean
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Cleanup failed"
 	fi
 
 	echo "** Compile bluez"
@@ -356,25 +394,23 @@ STEP_5_6 () {
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
-	echo "** Compile WiringPi"
+	echo "** Install WiringPi"
+	# NOTE: Ignore warnings during build
+
 	cp ./moode/other/wiringpi/wiringPi-2.50-36fb7f1.tar.gz ./
-
-	tar xfz wiringPi-2.50-36fb7f1.tar.gz
-	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Un-tar failed"
-	fi
-
+	tar xfz ./wiringPi-2.50-36fb7f1.tar.gz
 	cd wiringPi-36fb7f1
 	./build
+
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Compile failed"
+		cancelBuild "** Install failed"
 	fi
 
-	cd ..
-	rm -rf wiringPi*
+	cd ~/
+	rm -rf ./wiringPi*
 
 	echo "** Compile rotary encoder driver"
-	cp moode/other/rotenc/rotenc.c ./
+	cp ./moode/other/rotenc/rotenc.c ./
 	gcc -std=c99 rotenc.c -orotenc -lwiringPi
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Compile failed"
@@ -409,14 +445,26 @@ STEP_5_6 () {
 	chown mpd:audio /etc/mpd.conf
 	chmod 0666 /etc/mpd.conf
 
-	echo "** Install MPD devlibs"
+	echo "** Install MPD dev lib packages"
 	DEBIAN_FRONTEND=noninteractive apt-get -y install libmad0-dev libmpg123-dev libid3tag0-dev \
 		libflac-dev libvorbis-dev libaudiofile-dev libfaad-dev \
 		libwavpack-dev libavcodec-dev libavformat-dev \
 		libmp3lame-dev libsoxr-dev libcdio-paranoia-dev libiso9660-dev \
 		libcurl4-gnutls-dev libasound2-dev libshout3-dev libyajl-dev \
 		libmpdclient-dev libavahi-client-dev libsystemd-dev \
-		libwrap0-dev libboost-dev libicu-dev libglib2.0-dev
+		libwrap0-dev libicu-dev libglib2.0-dev
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: install failed"
+	fi
+
+	echo "** Install Boost 1.68 dev libs"
+	cp ./moode/other/boost/boost_1.68_headers.tar.gz /
+	cp ./moode/other/boost/boost_1.68_libraries.tar.gz /
+	cd /
+	tar xfz ./boost_1.68_headers.tar.gz
+	tar xfz ./boost_1.68_libraries.tar.gz
+	rm ./boost_*.gz
+	cd $MOSBUILD_DIR
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: install failed"
 	fi
@@ -459,12 +507,14 @@ STEP_7_8 () {
 	mkdir /var/local/www/imagesw
 	mkdir /var/local/www/imagesw/toggle
 	mkdir /var/local/www/db
+	mkdir /var/local/php
 	chmod -R 0755 /var/local/www
 	mkdir /var/lib/mpd/music/RADIO
 
 	echo "** Create mount points"
 	mkdir /mnt/NAS
 	mkdir /mnt/SDCARD
+	mkdir /mnt/UPNP
 
 	echo "** Create symlinks"
 	ln -s /mnt/NAS /var/lib/mpd/music/NAS
@@ -495,6 +545,7 @@ STEP_7_8 () {
 	echo "** Establish permissions"
 	chmod 0777 /var/lib/mpd/music/RADIO
 	chmod -R 0777 /var/local/www/db
+	chown www-data:www-data /var/local/php
 
 	echo "** Misc deletes"
 	rm -r /var/www/html
@@ -522,7 +573,7 @@ STEP_7_8 () {
 	cp -r ./moode/var/* /var
 	cp -r ./moode/www/* /var/www
 	chmod 0755 /home/pi/*.sh
-	chmod 0755 /home/pi/*.php
+	#chmod 0755 /home/pi/*.php
 	chmod 0755 /var/www/command/*
 	sqlite3 /var/local/www/db/moode-sqlite3.db "CREATE TRIGGER ro_columns BEFORE UPDATE OF param, value, [action] ON cfg_hash FOR EACH ROW BEGIN SELECT RAISE(ABORT, 'read only'); END;"
 	sqlite3 /var/local/www/db/moode-sqlite3.db "UPDATE cfg_system SET value='Emerald' WHERE param='accent_color'"
@@ -613,7 +664,8 @@ STEP_9_10 () {
 	echo "** Establish permissions"
 	chmod 0755 /usr/local/bin/alsaequal.bin
 	chown mpd:audio /usr/local/bin/alsaequal.bin
-	rm /usr/share/alsa/alsa.conf.d/equal.conf
+	#rm /usr/share/alsa/alsa.conf.d/equal.conf
+	rm /etc/alsa/alsa.conf.d/equal.conf
 
 	echo "** Wait 45 secs for moOde Startup to complete"
 	sleep 45
@@ -681,8 +733,8 @@ STEP_11 () {
 			DEBIAN_FRONTEND=noninteractive apt-get clean
 			echo "** Reboot 7"
 			echo "12-13" > $MOSBUILD_STEP
-			echo "Fix for missing 4.19.y regulatory.db files"
-			sudo cp ./moode/other/firmware/regulatory.db* /lib/firmware
+			#echo "Fix for missing 4.19.y regulatory.db files"
+			#sudo cp ./moode/other/firmware/regulatory.db* /lib/firmware
 			sync
 			reboot
 		fi
