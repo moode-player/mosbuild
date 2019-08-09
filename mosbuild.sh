@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2019-06-12 TC moOde 5.3.1
+# 2019-08-08 TC moOde 6.0.0
 #
 #
 
-VER="v2.10"
+VER="v2.11"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment
@@ -397,7 +397,7 @@ loadEnv () {
 
 dnldRaspbian () {
 	local RASPBIAN_ZIP=`echo $RASPBIAN_DNLD | awk -F"/" '{ print $NF }'`
-	echo "** Download Rasbian Stretch Lite $RASPBIAN_ZIP"
+	echo "** Download Rasbian Lite $RASPBIAN_ZIP"
 	cd mosbuild
 	wget -q --show-progress $RASPBIAN_DNLD -O $RASPBIAN_ZIP
 	if [ $? -ne 0 ] ; then
