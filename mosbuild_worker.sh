@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2019-08-08 TC moOde 6.0.0
+# 2019-08-18 TC moOde 6.1.0
 #
 
 VER="v2.11"
@@ -406,7 +406,7 @@ STEP_5_6 () {
 		cancelBuild "** Install failed"
 	fi
 
-	cd ~/
+	cd ..
 	rm -rf ./wiringPi*
 
 	echo "** Compile rotary encoder driver"

@@ -4,13 +4,13 @@ The Moode OS Builder is a script that runs on a Raspberry Pi and automates the p
 
 The OS can be built directly on the boot SDCard (direct build) or on a second USB-SDCard plugged into the Raspberry Pi. If the direct build method is used then the Pi must be running the exact release of Raspbian Stretch Lite specified in the Build requirements. The USB-SDCard method automatically uses the correct release of Raspbian Stretch Lite.
 
-A typical Build takes around 1 hour and during that time the Pi will automatically reboot many times as the build progresses through each of its sections. 
+A typical Build takes around 1 hour and during that time the Pi will automatically reboot many times as the build progresses through each of its sections.
 
 @Koda59 © 2017
 
 # Build requirements
 
-If using the direct build method then boot a Raspberry Pi running [Raspbian Stretch Lite release 2018-11-13](http://downloads.raspberrypi.org/raspbian_lite/images/raspbian_lite-2018-11-15/2018-11-13-raspbian-stretch-lite.zip). No other release is guaranteed to work. If using a second USB-SDCard for the Build then make sure its not plugged into the Pi prior to starting the Build.
+If using the direct build method then boot a Raspberry Pi running [Raspbian Buster Lite release 2018-07-10](http://downloads.raspberrypi.org/raspbian_lite/images/raspbian_lite-2019-07-12/2019-07-10-raspbian-buster-lite.zip). No other release is guaranteed to work. If using a second USB-SDCard for the Build then make sure its not plugged into the Pi prior to starting the Build.
 
 ## Download the Builder script
 
@@ -40,7 +40,7 @@ It can take around 1 hour to complete.
 
 Use cmds: mosbrief, moslog and moslast to monitor the process.
 
-** Save base OS img for additional builds (y/n)? 
+** Save base OS img for additional builds (y/n)?
 ```
 ### Direct build method
 ```
@@ -52,7 +52,7 @@ It can take around 1 hour to complete.
 
 Use cmds: mosbrief, moslog and moslast to monitor the process.
 
-** Power off the Pi (y/n)? 
+** Power off the Pi (y/n)?
 ```
 ## During the second stage of the Build
 
@@ -62,7 +62,7 @@ mosbrief  Prints only the section headers
 moslog    Prints each line in real-time
 moslast   Prints only the last few lines
 ```
-Periodically monitor the build process for an error block in the build log that indicates the Build has exited (stopped) and can be resumed. In this case simply reboot the pi and the Build will resume at the beginning of the section that contained the error. 
+Periodically monitor the build process for an error block in the build log that indicates the Build has exited (stopped) and can be resumed. In this case simply reboot the pi and the Build will resume at the beginning of the section that contained the error.
 ```
 ** Error: image build exited
 ** Error: reboot to resume the build
