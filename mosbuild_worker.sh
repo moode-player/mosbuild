@@ -406,7 +406,7 @@ STEP_5_6 () {
 		cancelBuild "** Install failed"
 	fi
 
-	cd ~/
+	cd ..
 	rm -rf ./wiringPi*
 
 	echo "** Compile rotary encoder driver"
