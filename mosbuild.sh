@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2019-08-18 TC moOde 6.1.0
+# 2019-09-05 TC moOde 6.2.0
 #
 #
 
-VER="v2.11"
+VER="v2.13"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment

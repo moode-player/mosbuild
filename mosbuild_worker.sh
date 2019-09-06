@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2019-08-18 TC moOde 6.1.0
+# 2019-09-05 TC moOde 6.2.0
 #
 
-VER="v2.11"
+VER="v2.13"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -198,7 +198,7 @@ STEP_3B_4 () {
 	DEBIAN_FRONTEND=noninteractive apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 php7.3-gd mpc \
 		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools shellinabox samba smbclient ntfs-3g \
 		exfat-fuse git inotify-tools ffmpeg avahi-utils ninja-build python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-6a \
-		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged
+		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged python3-pip
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi
@@ -248,6 +248,12 @@ STEP_3B_4 () {
 	echo "** Install udisks-glue pre-compiled binary"
 	cp ./moode/other/udisks-glue/udisks-glue-1.3.5-70376b7 /usr/bin/udisks-glue
 
+	echo "** Install udevil (includes devmon)"
+	DEBIAN_FRONTEND=noninteractive apt-get -y install udevil
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: install failed"
+	fi
+
 	echo "** Autoremove PHP 7.2"
 	DEBIAN_FRONTEND=noninteractive apt-get -y autoremove
 	if [ $? -ne 0 ] ; then
@@ -259,6 +265,7 @@ STEP_3B_4 () {
 	systemctl disable shellinabox
 	systemctl disable phpsessionclean.service
 	systemctl disable phpsessionclean.timer
+	systemctl disable udisks2
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -409,16 +416,37 @@ STEP_5_6 () {
 	cd ..
 	rm -rf ./wiringPi*
 
-	echo "** Compile rotary encoder driver"
+	echo "** Compile C version of rotary encoder driver"
 	cp ./moode/other/rotenc/rotenc.c ./
 	gcc -std=c99 rotenc.c -orotenc -lwiringPi
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Compile failed"
 	fi
 
-	echo "** Cleanup"
-	cp ./rotenc /usr/local/bin
+	echo "** Install C version of driver"
+	cp ./rotenc /usr/local/bin/rotenc_c
 	rm ./rotenc*
+
+	echo "** Install RPi.GPIO"
+	pip3 install RPi.GPIO
+
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Install failed"
+	fi
+
+	echo "** Install musicpd"
+	pip3 install python-musicpd
+
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Install failed"
+	fi
+
+	echo "** Install Python version of rotary encoder driver (default)"
+	cp ./moode/other/rotenc/rotenc.py /usr/local/bin/rotenc
+
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Install failed"
+	fi
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
