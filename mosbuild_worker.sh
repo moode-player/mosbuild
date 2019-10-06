@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2019-09-05 TC moOde 6.2.0
+# 2019-10-02 TC moOde 6.3.0
 #
 
-VER="v2.13"
+VER="v2.14"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -474,13 +474,33 @@ STEP_5_6 () {
 	chmod 0666 /etc/mpd.conf
 
 	echo "** Install MPD dev lib packages"
-	DEBIAN_FRONTEND=noninteractive apt-get -y install libmad0-dev libmpg123-dev libid3tag0-dev \
-		libflac-dev libvorbis-dev libaudiofile-dev libfaad-dev \
-		libwavpack-dev libavcodec-dev libavformat-dev \
-		libmp3lame-dev libsoxr-dev libcdio-paranoia-dev libiso9660-dev \
-		libcurl4-gnutls-dev libasound2-dev libshout3-dev libyajl-dev \
-		libmpdclient-dev libavahi-client-dev libsystemd-dev \
-		libwrap0-dev libicu-dev libglib2.0-dev
+	DEBIAN_FRONTEND=noninteractive apt-get -y install \
+	libyajl-dev \
+	libasound2-dev \
+	libavahi-client-dev \
+	libavcodec-dev \
+	libavformat-dev \
+	libbz2-dev \
+	libcdio-paranoia-dev \
+	libcurl4-gnutls-dev \
+	libfaad-dev \
+	libflac-dev \
+	libglib2.0-dev \
+	libicu-dev \
+	libid3tag0-dev \
+	libiso9660-dev \
+	libmad0-dev \
+	libmpdclient-dev \
+	libmpg123-dev \
+	libmp3lame-dev \
+	libshout3-dev \
+	libsoxr-dev \
+	libsystemd-dev \
+	libvorbis-dev \
+	libwavpack-dev \
+	libwrap0-dev \
+	libzzip-dev
+
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: install failed"
 	fi
@@ -750,7 +770,7 @@ STEP_11 () {
 		echo "////////////////////////////////////////////////////////////////"
 		echo
 
-		echo "** Download and install Linux kernel $KERNEL_VER"
+		echo "** Download and install Linux kernel $KERNEL_VER build $KERNEL_BUILD"
 		echo "y" | PRUNE_MODULES=1 rpi-update $KERNEL_HASH
 		if [ $? -ne 0 ] ; then
 			cancelBuild "** Error: rpi-update failed"
@@ -759,6 +779,22 @@ STEP_11 () {
 		    rm -rf /lib/modules.bak
 		    rm -rf /boot.bak
 			DEBIAN_FRONTEND=noninteractive apt-get clean
+
+			echo "** Install Edimax EW-7811Un fix"
+			mv /etc/modprobe.d/blacklist-rtl8192cu.conf /etc/modprobe.d/blacklist-rtl8192cu.conf.delete
+
+			echo "** Install drivers for Allo USBridge Signature"
+			# WiFi driver (MrEngman stock)
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/8812au.ko /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/wireless
+			# Eth/USB driver v0.1.4 (Allo enhanced)
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/ax88179_178a.ko /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/usb
+
+			echo "** Depmod"
+			depmod $KERNEL_VER-v7+
+			if [ $? -ne 0 ] ; then
+				cancelBuild "** Error: depmod failed"
+			fi
+
 			echo "** Reboot 7"
 			echo "12-13" > $MOSBUILD_STEP
 			#echo "Fix for missing 4.19.y regulatory.db files"
@@ -889,22 +925,12 @@ COMP_C1_C7 () {
 
 	cd $MOSBUILD_DIR
 
-	echo "** Build Auto-shuffle"
-	git clone https://github.com/Joshkunz/ashuffle.git
-	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Git clone failed"
-	fi
+	echo "** Install pre-compiled binary"
+	cp ./moode/other/ashuffle/ashuffle /usr/local/bin
 
-	cd $MOSBUILD_DIR/ashuffle
-	make
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Make failed"
+		cancelBuild "** Error: Install failed"
 	fi
-
-	echo "** Install binary"
-	cd ..
-	cp ./ashuffle/ashuffle /usr/local/bin
-	rm -rf ./ashuffle
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -1164,7 +1190,7 @@ COMP_C8_C9 () {
 	echo
 
 	echo "** Install Local UI packages"
-	DEBIAN_FRONTEND=noninteractive apt-get -y install xinit xorg lsb-release xserver-xorg-legacy chromium-browser libgtk-3-0
+	DEBIAN_FRONTEND=noninteractive apt-get -y install xinit xorg lsb-release xserver-xorg-legacy chromium-browser libgtk-3-0 libgles2
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: install failed"
 	fi
@@ -1230,8 +1256,9 @@ finalCleanup () {
 
 	cd $MOSBUILD_DIR
 
-	echo "** Remove mosbuild"
-	cp ./moode/etc/rc.local /etc/rc.local
+	echo "** Install default rc.local"
+	mv ./moode/etc/rc.local /etc/rc.local
+	echo "** Remove mosbuild dir"
 	cd ..
 	rm -rf $MOSBUILD_DIR
 	echo "** Clean package cache"
