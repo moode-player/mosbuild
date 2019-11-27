@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2019-10-02 TC moOde 6.3.0
+# 2019-11-24 TC moOde 6.4.0
 #
 
-VER="v2.14"
+VER="v2.15"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -138,8 +138,8 @@ STEP_3A () {
 
 	echo "** Basic optimizations"
 	dphys-swapfile swapoff
-	update-rc.d dphys-swapfile remove
-	rm -f /var/swap
+	dphys-swapfile uninstall
+	systemctl disable dphys-swapfile
 	systemctl disable cron.service
 	systemctl enable rpcbind
 	systemctl set-default multi-user.target
@@ -158,7 +158,8 @@ STEP_3A () {
 	fi
 
 	echo "** Update Raspbian package list"
-	DEBIAN_FRONTEND=noninteractive apt-get update --allow-releaseinfo-change
+	#DEBIAN_FRONTEND=noninteractive apt-get update --allow-releaseinfo-change
+	DEBIAN_FRONTEND=noninteractive apt-get update
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: update failed"
 	fi
@@ -189,7 +190,8 @@ STEP_3B_4 () {
 	echo
 
 	echo "** Refresh Raspbian package list"
-	DEBIAN_FRONTEND=noninteractive apt-get update --allow-releaseinfo-change
+	#DEBIAN_FRONTEND=noninteractive apt-get update --allow-releaseinfo-change
+	DEBIAN_FRONTEND=noninteractive apt-get update
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: refresh failed"
 	fi
@@ -198,7 +200,7 @@ STEP_3B_4 () {
 	DEBIAN_FRONTEND=noninteractive apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 php7.3-gd mpc \
 		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools shellinabox samba smbclient ntfs-3g \
 		exfat-fuse git inotify-tools ffmpeg avahi-utils ninja-build python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-6a \
-		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged python3-pip
+		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged python3-pip xfsprogs
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi
@@ -321,10 +323,10 @@ STEP_3B_4 () {
 	ln -s /usr/libexec/bluetooth/bluetoothd /usr/sbin/bluetoothd
 
 	echo "** Compile bluez-alsa"
-	# Compile bluez-alsa 1.3.1
-	# 2019-03-10 commit d73282b25c613fff445ad3818a963e958b23cc20
-	cp ./moode/other/bluetooth/bluez-alsa-master-d73282b.zip ./
-	unzip -q bluez-alsa-master-d73282b.zip
+	# Compile bluez-alsa 2.0.0
+	# 2019-10-27 commit 4af3ebb361a66dc497accffa47301dfa1fd7b42f
+	cp ./moode/other/bluetooth/bluez-alsa-master-2.0.0-4af3ebb.zip ./
+	unzip -q bluez-alsa-master-2.0.0-4af3ebb.zip
 	cd bluez-alsa-master
 	echo "** NOTE: Ignore warnings from autoreconf and configure"
 	autoreconf --install
@@ -382,6 +384,23 @@ STEP_3B_4 () {
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Cleanup failed"
 	fi
+
+	echo "** Compile trx"
+	DEBIAN_FRONTEND=noninteractive apt-get -y install libopus-dev
+	cp ./moode/other/trx/trx-0.4.tar.gz ./
+	tar xfz ./trx-0.4.tar.gz
+	cd trx-0.4
+	make
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Make failed"
+	fi
+
+	make install
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Make install failed"
+	fi
+	cd ..
+	rm -rf trx-0.4*
 
 	echo "** Reboot 3"
 	echo "5-6" > $MOSBUILD_STEP
@@ -472,6 +491,8 @@ STEP_5_6 () {
 	cp ./moode/mpd/mpd.conf.default /etc/mpd.conf
 	chown mpd:audio /etc/mpd.conf
 	chmod 0666 /etc/mpd.conf
+	echo "** Set permissions for D-Bus (for bluez-alsa)"
+	usermod -a -G audio mpd
 
 	echo "** Install MPD dev lib packages"
 	DEBIAN_FRONTEND=noninteractive apt-get -y install \
@@ -786,6 +807,9 @@ STEP_11 () {
 			echo "** Install drivers for Allo USBridge Signature"
 			# WiFi driver (MrEngman stock)
 			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/8812au.ko /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/wireless
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/8812au.conf /etc/modprobe.d/
+			chmod 0644 /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/wireless/8812au.ko
+			chmod 0644 /etc/modprobe.d/*.conf
 			# Eth/USB driver v0.1.4 (Allo enhanced)
 			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/ax88179_178a.ko /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/usb
 
@@ -975,7 +999,7 @@ COMP_C1_C7 () {
 
 	echo "** Install shairport-sync devlibs"
 	DEBIAN_FRONTEND=noninteractive apt-get -y install autoconf libtool libdaemon-dev libasound2-dev libpopt-dev libconfig-dev \
-		avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
+		avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev libmosquitto-dev
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi
