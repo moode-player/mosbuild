@@ -387,8 +387,8 @@ STEP_3B_4 () {
 
 	echo "** Compile trx"
 	DEBIAN_FRONTEND=noninteractive apt-get -y install libopus-dev
-	cp ./moode/other/trx/trx-0.4.tar.gz ./
-	tar xfz ./trx-0.4.tar.gz
+	cp ./moode/other/trx/trx-0.4.zip ./
+	tar xfz ./trx-0.4.zip
 	cd trx-0.4
 	make
 	if [ $? -ne 0 ] ; then
