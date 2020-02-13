@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2020-01-23 TC moOde 6.4.1
+# 2020-02-12 TC moOde 6.4.2
 #
 
-VER="v2.16"
+VER="v2.17"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -143,7 +143,6 @@ STEP_3A () {
 	systemctl disable cron.service
 	systemctl enable rpcbind
 	systemctl set-default multi-user.target
-	DEBIAN_FRONTEND=noninteractive apt-get -y purge triggerhappy
 	if [ $? -ne 0 ] ; then
 		dpkg --configure -a
 		cancelBuild "** Error: unable to purge triggerhappy"
@@ -200,7 +199,7 @@ STEP_3B_4 () {
 	DEBIAN_FRONTEND=noninteractive apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 php7.3-gd mpc \
 		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools shellinabox samba smbclient ntfs-3g \
 		exfat-fuse git inotify-tools ffmpeg avahi-utils ninja-build python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-6a \
-		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged python3-pip xfsprogs
+		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged python3-pip xfsprogs triggerhappy
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi
@@ -229,6 +228,12 @@ STEP_3B_4 () {
 
 	echo "** Install mediainfo"
 	cp ./moode/other/mediainfo/mediainfo-18.12 /usr/local/bin/mediainfo
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Install failed"
+	fi
+
+	echo "** Install alsacap"
+	cp ./moode/other/alsacap/alsacap /usr/local/bin
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi
@@ -268,6 +273,7 @@ STEP_3B_4 () {
 	systemctl disable phpsessionclean.service
 	systemctl disable phpsessionclean.timer
 	systemctl disable udisks2
+	systemctl disable triggerhappy
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -384,23 +390,6 @@ STEP_3B_4 () {
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Cleanup failed"
 	fi
-
-	echo "** Compile trx"
-	DEBIAN_FRONTEND=noninteractive apt-get -y install libopus-dev
-	cp ./moode/other/trx/trx-0.4.tar.gz ./
-	tar xfz ./trx-0.4.tar.gz
-	cd trx-0.4
-	make
-	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Make failed"
-	fi
-
-	make install
-	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Make install failed"
-	fi
-	cd ..
-	rm -rf trx-0.4*
 
 	echo "** Reboot 3"
 	echo "5-6" > $MOSBUILD_STEP
@@ -810,7 +799,7 @@ STEP_11 () {
 			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/8812au.conf /etc/modprobe.d/
 			chmod 0644 /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/wireless/8812au.ko
 			chmod 0644 /etc/modprobe.d/*.conf
-			# Eth/USB driver v0.1.4 (Allo enhanced)
+			# Eth/USB driver v2.0.0 (Allo enhanced)
 			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/ax88179_178a.ko /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/usb
 
 			echo "** Depmod"
