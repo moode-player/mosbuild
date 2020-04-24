@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2020-02-12 TC moOde 6.4.2
+# 2020-04-24 TC moOde 6.5.0
 #
 #
 
-VER="v2.17"
+VER="v2.18"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment
@@ -492,14 +492,17 @@ modifyImage () {
 
 	# modify rc.local
 	sed -i "s/^exit.*//" part2/etc/rc.local
-	# stretch requires unblocking wifi
-	echo "if [ -f /run/wifi-country-unset ] ; then" >> part2/etc/rc.local
+	# Buster 10.3 method for unblocking wifi at first boot
+	echo "if [ -d /sys/class/net/wlan0 ] && [ \`wpa_cli -i \"wlan0\" get country\` != \"US\" ]; then" >> part2/etc/rc.local
+	echo "wpa_cli -i \"wlan0\" set country \"US\"" >> part2/etc/rc.local
+	echo "wpa_cli -i \"wlan0\" save_config > /dev/null 2>&1" >> part2/etc/rc.local
 	echo "/usr/sbin/rfkill unblock wifi" >> part2/etc/rc.local
 	echo "fi" >> part2/etc/rc.local
 	echo "** Enable wifi unblock"
+	# Mosbuild worker script
 	echo "$MOSBUILD_DIR/mosbuild_worker.sh >> /home/pi/mosbuild.log 2>> /home/pi/mosbuild.log" >> part2/etc/rc.local
 	echo "exit 0" >> part2/etc/rc.local
-	echo "** Enable script for autorun after reboot"
+	echo "** Enable worker script for autorun after reboot"
 
 	sed -i "s/raspberrypi/moode/" part2/etc/hostname
 	sed -i "s/raspberrypi/moode/" part2/etc/hosts

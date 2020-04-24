@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2020-02-12 TC moOde 6.4.2
+# 2020-04-24 TC moOde 6.5.0
 #
 
-VER="v2.17"
+VER="v2.18"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -36,14 +36,11 @@ cancelBuild () {
 	fi
 	echo "** Error: image build exited"
 	echo "** Error: reboot to resume the build"
-#	cd /home/pi
-#	rm -rf mosbuild 2> /dev/null
-#	rm -f *.zip 2> /dev/null
 	apt-get clean
-    #### Power off Act LED
+    # Power off Act LED
     echo 0 >/sys/class/leds/led0/brightness
     sleep 1
-    #### Now we are going reset to default control ACT LED
+    # Now we are going reset to default control ACT LED
     echo mmc0 >/sys/class/leds/led0/trigger
     sleep 1
 	exit 1
@@ -89,34 +86,31 @@ STEP_2 () {
 		cancelBuild "** Error: password change failed"
 	fi
 
-	echo "** Download latest moOde release"
+	echo "** Download moOde release"
 	wget -q $MOODE_REL
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: download failed"
 	fi
-
-	echo "** Unzip release"
-	unzip -o -q $MOODE_REL_ZIP
+	echo "** Extract resizefs.sh"
+	unzip -p -q $MOODE_REL_ZIP moode/www/command/resizefs.sh > ./resizefs.sh
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: unzip failed"
 	fi
-	rm -f $MOODE_REL_ZIP
+	echo "** Extract boot config.txt"
+	unzip -p -q $MOODE_REL_ZIP moode/boot/config.txt.default > ./config.txt.default
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: unzip failed"
+	fi
 
     if [ -z "$DIRECT" ] || [ `df -k --output=size / | tail -1` -lt 2500000 ] ; then
 	  echo "** Expand SDCard to 3.5GB"
-	  cp ./moode/www/command/resizefs.sh ./
-	  chmod 0755 resizefs.sh
+	  chmod 0755 ./resizefs.sh
 	  sed -i "/PART_END=/c\PART_END=+3500M" ./resizefs.sh
 	  ./resizefs.sh start
     fi
 
 	echo "** Install boot/config.txt"
-	cp ./moode/boot/config.txt.default /boot/config.txt
-
-    if [ -z "$DIRECT" ] ; then
-	  echo "** Cleanup"
-	  rm -f resizefs.sh
-    fi
+	cp ./config.txt.default /boot/config.txt
 
 	echo "** Reboot 1"
 	echo "3A" > $MOSBUILD_STEP
@@ -136,6 +130,15 @@ STEP_3A () {
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
+	local MOODE_REL_ZIP=`echo $MOODE_REL | awk -F"/" '{ print $NF }'`
+
+	echo "** Unzip moOde release"
+	unzip -o -q $MOODE_REL_ZIP
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: unzip failed"
+	fi
+	rm -f $MOODE_REL_ZIP
+
 	echo "** Basic optimizations"
 	dphys-swapfile swapoff
 	dphys-swapfile uninstall
@@ -143,10 +146,12 @@ STEP_3A () {
 	systemctl disable cron.service
 	systemctl enable rpcbind
 	systemctl set-default multi-user.target
-	if [ $? -ne 0 ] ; then
-		dpkg --configure -a
-		cancelBuild "** Error: unable to purge triggerhappy"
-	fi
+	systemctl stop apt-daily.timer
+	systemctl disable apt-daily.timer
+	systemctl mask apt-daily.timer
+	systemctl stop apt-daily-upgrade.timer
+	systemctl disable apt-daily-upgrade.timer
+	systemctl mask apt-daily-upgrade.timer
 
 	if [ -z "$http_proxy" ] ; then
 		echo "** No proxy configured"
@@ -459,7 +464,7 @@ STEP_5_6 () {
 	echo
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
-	echo "// STEP 6 - Compile and install MPD"
+	echo "// STEP 6 - Install MPD"
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo

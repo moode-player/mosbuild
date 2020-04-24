@@ -10,7 +10,7 @@ A typical Build takes around 1 hour and during that time the Pi will automatical
 
 # Build requirements
 
-If using the direct build method then boot a Raspberry Pi running [Raspbian Buster Lite release 2019-09-26](http://downloads.raspberrypi.org/raspbian_lite/images/raspbian_lite-2019-09-30/2019-09-26-raspbian-buster-lite.zip). No other release is guaranteed to work. If using a second USB-SDCard for the Build then make sure its not plugged into the Pi prior to starting the Build.
+If using the direct build method then boot a Raspberry Pi running [Raspbian Buster Lite release 2020-02-13](http://downloads.raspberrypi.org/raspbian_lite/images/raspbian_lite-2020-02-14/2020-02-13-raspbian-buster-lite.zip). No other release is guaranteed to work. If using a second USB-SDCard for the Build then make sure its not plugged into the Pi prior to starting the Build.
 
 ## Download the Builder script
 
