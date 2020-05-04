@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2020-04-27 TC moOde 6.5.1
+# 2020-05-03 TC moOde 6.5.2
 #
 
-VER="v2.20"
+VER="v2.21"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -921,7 +921,7 @@ COMP_C1_C7 () {
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
-	echo "** Install MiniDLNA package"
+	echo "** Install MiniDLNA package to get all the parts"
 	DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install minidlna
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: install failed"
@@ -932,6 +932,9 @@ COMP_C1_C7 () {
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Disable failed"
 	fi
+
+	echo "** Install newer pre-compiled binary"
+	cp ./moode/other/minidlna/$MINIDLNA_BIN /usr/sbin/minidlnad
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
