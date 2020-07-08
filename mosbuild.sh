@@ -75,7 +75,7 @@ mainBanner () {
 	echo "**  2. The build can be written directly to the boot SDCard or"
 	echo "**  to a second USB-SDCard plugged into the Raspberry Pi."
 	echo "**"
-	echo "**  WARNING: Raspbian Stretch Lite 2018-11-13 must be used if"
+	echo "**  WARNING: Raspbian Buster Lite 2020-02-13 must be used if"
 	echo "**  building directly on the boot SDCard. It must be a fresh,"
 	echo "**  unmodified installation of Stretch Lite otherwise the build"
 	echo "**  results cannot be guaranteed."
