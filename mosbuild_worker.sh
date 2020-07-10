@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2020-05-03 TC moOde 6.5.2
+# 2020-07-09 TC moOde 6.6.0
 #
 
-VER="v2.21"
+VER="v2.22"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -161,14 +161,14 @@ STEP_3A () {
         echo "Acquire::ForceIPv4 \"true\";" > /etc/apt/apt.conf.d/99force-ipv4
 	fi
 
-	echo "** Update Raspbian package list"
+	echo "** Update RaspiOS package list"
 	#DEBIAN_FRONTEND=noninteractive apt-get update --allow-releaseinfo-change
 	DEBIAN_FRONTEND=noninteractive apt-get update
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: update failed"
 	fi
 
-	echo "** Upgrading Raspbian installed packages to latest available"
+	echo "** Upgrading RaspiOS installed packages to latest available"
 	DEBIAN_FRONTEND=noninteractive apt-get -y upgrade
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: upgrade failed"
@@ -193,7 +193,7 @@ STEP_3B_4 () {
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
-	echo "** Refresh Raspbian package list"
+	echo "** Refresh RaspiOS package list"
 	#DEBIAN_FRONTEND=noninteractive apt-get update --allow-releaseinfo-change
 	DEBIAN_FRONTEND=noninteractive apt-get update
 	if [ $? -ne 0 ] ; then
@@ -204,7 +204,7 @@ STEP_3B_4 () {
 	DEBIAN_FRONTEND=noninteractive apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 php7.3-gd mpc \
 		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools shellinabox samba smbclient ntfs-3g \
 		exfat-fuse git inotify-tools ffmpeg avahi-utils ninja-build python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-6a \
-		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged python3-pip xfsprogs triggerhappy
+		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged python3-pip xfsprogs triggerhappy zip id3v2
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi
@@ -334,10 +334,10 @@ STEP_3B_4 () {
 	ln -s /usr/libexec/bluetooth/bluetoothd /usr/sbin/bluetoothd
 
 	echo "** Compile bluez-alsa"
-	# Compile bluez-alsa 2.0.0
-	# 2019-10-27 commit 4af3ebb361a66dc497accffa47301dfa1fd7b42f
-	cp ./moode/other/bluetooth/bluez-alsa-master-2.0.0-4af3ebb.zip ./
-	unzip -q bluez-alsa-master-2.0.0-4af3ebb.zip
+	# Compile bluez-alsa 2.1.0-49ad348
+	# 2019-10-27 commit 49ad348808a15485aa7cb2df0a4d13654cc0cee3
+	cp ./moode/other/bluetooth/bluez-alsa-master-2.1.0-49ad348.zip ./
+	unzip -q bluez-alsa-master-2.1.0-49ad348.zip
 	cd bluez-alsa-master
 	echo "** NOTE: Ignore warnings from autoreconf and configure"
 	autoreconf --install
@@ -596,7 +596,8 @@ STEP_7_8 () {
 	cp ./moode/network/interfaces.default /etc/network/interfaces
 	cp ./moode/network/dhcpcd.conf.default /etc/dhcpcd.conf
 	cp ./moode/network/hostapd.conf.default /etc/hostapd/hostapd.conf
-	cp ./moode/var/local/www/db/moode-sqlite3.db.default /var/local/www/db/moode-sqlite3.db
+	#cp ./moode/var/local/www/db/moode-sqlite3.db.default /var/local/www/db/moode-sqlite3.db
+	cat ./moode/var/local/www/db/moode-sqlite3.db.sql | sqlite3 /var/local/www/db/moode-sqlite3.db
 	# if we are building over wifi, wpa_supplicant will already be configred
 	# with ssid and pwd so we need to update cfg_network to match.
 	if [ -z $SSID ] ; then
@@ -613,6 +614,7 @@ STEP_7_8 () {
 	echo "** Misc deletes"
 	rm -r /var/www/html
 	rm /etc/update-motd.d/10-uname
+	rm /etc/motd
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -799,6 +801,7 @@ STEP_11 () {
 			mv /etc/modprobe.d/blacklist-rtl8192cu.conf /etc/modprobe.d/blacklist-rtl8192cu.conf.delete
 
 			echo "** Install drivers for Allo USBridge Signature"
+			echo "** 32-bit drivers"
 			# WiFi driver (MrEngman stock)
 			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/8812au.ko /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/wireless
 			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/8812au.conf /etc/modprobe.d/
@@ -809,6 +812,20 @@ STEP_11 () {
 
 			echo "** Depmod"
 			depmod $KERNEL_VER-v7+
+			if [ $? -ne 0 ] ; then
+				cancelBuild "** Error: depmod failed"
+			fi
+
+			echo "** 64-bit drivers"
+			# NOTE uses same /etc/modprobe.d/8812au.conf as 32-bit driver
+			# WiFi driver (MrEngman stock)
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v8+/8812au.ko /lib/modules/$KERNEL_VER-v8+/kernel/drivers/net/wireless
+			chmod 0644 /lib/modules/$KERNEL_VER-v8+/kernel/drivers/net/wireless/8812au.ko
+			# Eth/USB driver v2.0.0 (Allo enhanced)
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v8+/ax88179_178a.ko /lib/modules/$KERNEL_VER-v8+/kernel/drivers/net/usb
+
+			echo "** Depmod"
+			depmod $KERNEL_VER-v8+
 			if [ $? -ne 0 ] ; then
 				cancelBuild "** Error: depmod failed"
 			fi
@@ -1064,13 +1081,13 @@ COMP_C1_C7 () {
 		cancelBuild "** Error: install failed"
 	fi
 
-	echo "** Compile Libupnp jfd5"
-	cp ./moode/other/upmpdcli/libupnp-1.6.20.jfd5.tar.gz ./
-	tar xfz ./libupnp-1.6.20.jfd5.tar.gz
+	echo "** Compile Libnpupnp 4.0.6"
+	cp ./moode/other/upmpdcli/libnpupnp-4.0.6.tar.gz ./
+	tar xfz ./libnpupnp-4.0.6.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
-	cd libupnp-1.6.20.jfd5
+	cd libnpupnp-4.0.6
 	./configure --prefix=/usr --sysconfdir=/etc
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Configure failed"
@@ -1085,16 +1102,16 @@ COMP_C1_C7 () {
 	fi
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./libupnp-1.6.20.jfd5
-	rm libupnp-1.6.20.jfd5.tar.gz
+	rm -rf ./libnpupnp-4.0.6
+	rm libnpupnp-4.0.6.tar.gz
 
-	echo "** Compile Libupnpp"
-	cp ./moode/other/upmpdcli/libupnpp-0.16.0.tar.gz ./
-	tar xfz ./libupnpp-0.16.0.tar.gz
+	echo "** Compile Libupnpp 0.19.1"
+	cp ./moode/other/upmpdcli/libupnpp-0.19.1.tar.gz ./
+	tar xfz ./libupnpp-0.19.1.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
-	cd libupnpp-0.16.0
+	cd libupnpp-0.19.1
 	./configure --prefix=/usr --sysconfdir=/etc
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Configure failed"
@@ -1109,16 +1126,16 @@ COMP_C1_C7 () {
 	fi
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./libupnpp-0.16.0
-	rm libupnpp-0.16.0.tar.gz
+	rm -rf ./libupnpp-0.19.1
+	rm libupnpp-0.19.1.tar.gz
 
-	echo "** Compile Upmpdcli"
-	cp ./moode/other/upmpdcli/upmpdcli-code-1.2.16.tar.gz ./
-	tar xfz ./upmpdcli-code-1.2.16.tar.gz
+	echo "** Compile Upmpdcli 1.4.12-7ea91f5d"
+	cp ./moode/other/upmpdcli/upmpdcli-1.4.12-master-7ea91f5d.tar.gz ./
+	tar xfz ./upmpdcli-1.4.12-master-7ea91f5d.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
-	cd upmpdcli-code
+	cd upmpdcli-master
 	./autogen.sh
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Autogen failed"
@@ -1137,8 +1154,8 @@ COMP_C1_C7 () {
 	fi
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./upmpdcli-code-1.2.16
-	rm upmpdcli-code-1.2.16.tar.gz
+	rm -rf ./upmpdcli-master
+	rm upmpdcli-1.4.12-master-7ea91f5d.tar.gz
 
 	echo "** Configure runtime env"
 	useradd upmpdcli
@@ -1149,8 +1166,9 @@ COMP_C1_C7 () {
 	systemctl disable upmpdcli
 
 	echo "** Compile Upexplorer"
-	cp -r ./moode/other/libupnppsamples-code/ ./
-	cd libupnppsamples-code
+	cp ./moode/other/upmpdcli/libupnpp-samples-master.zip ./
+	unzip -q ./libupnpp-samples-master.zip
+	cd ./libupnpp-samples-master
 	./autogen.sh
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Autogen failed"
@@ -1170,7 +1188,8 @@ COMP_C1_C7 () {
 
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./libupnppsamples-code
+	rm -rf ./libupnpp-samples-master
+	rm ./libupnpp-samples-master.zip
 	DEBIAN_FRONTEND=noninteractive apt-get clean
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Cleanup failed"

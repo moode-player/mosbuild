@@ -1,8 +1,8 @@
 # Moode OS Builder
 
-The Moode OS Builder is a script that runs on a Raspberry Pi and automates the process of creating the custom Linux OS that runs moOde audio player. The Builder requires a Raspberry Pi running Raspbian with SSH enabled, at least 2.5 GB free space on the boot SDCard, and an Internet connection, preferably via Ethernet
+The Moode OS Builder is a script that runs on a Raspberry Pi and automates the process of creating the custom Linux OS that runs moOde audio player. The Builder requires a Raspberry Pi running RaspiOS with SSH enabled, at least 2.5 GB free space on the boot SDCard, and an Internet connection, preferably via Ethernet
 
-The OS can be built directly on the boot SDCard (direct build) or on a second USB-SDCard plugged into the Raspberry Pi. If the direct build method is used then the Pi must be running the exact release of Raspbian Buster Lite specified in the Build requirements. The USB-SDCard method automatically uses the correct release of Raspbian Buster Lite.
+The OS can be built directly on the boot SDCard (direct build) or on a second USB-SDCard plugged into the Raspberry Pi. If the direct build method is used then the Pi must be running the exact release of RaspiOS Lite (Buster) specified in the Build requirements. The USB-SDCard method automatically uses the correct release of RaspiOS Lite (Buster).
 
 A typical Build takes around 1 hour and during that time the Pi will automatically reboot many times as the build progresses through each of its sections.
 
@@ -10,7 +10,7 @@ A typical Build takes around 1 hour and during that time the Pi will automatical
 
 # Build requirements
 
-If using the direct build method then boot a Raspberry Pi running [Raspbian Buster Lite release 2020-02-13](http://downloads.raspberrypi.org/raspbian_lite/images/raspbian_lite-2020-02-14/2020-02-13-raspbian-buster-lite.zip). No other release is guaranteed to work. If using a second USB-SDCard for the Build then make sure its not plugged into the Pi prior to starting the Build.
+If using the direct build method then boot a Raspberry Pi running [RaspiOS Buster Lite release 2020-05-27](http://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2020-05-28/2020-05-27-raspios-buster-lite-armhf.zip). No other release is guaranteed to work. If using a second USB-SDCard for the Build then make sure its not plugged into the Pi prior to starting the Build.
 
 ## Download the Builder script
 

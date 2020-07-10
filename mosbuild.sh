@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2020-05-03 TC moOde 6.5.2
+# 2020-07-09 TC moOde 6.6.0
 #
 #
 
-VER="v2.21"
+VER="v2.22"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment
@@ -69,13 +69,13 @@ mainBanner () {
 	echo "**  Welcome to the automated process for creating the wonderful"
 	echo "**  custom Linux OS that runs moOde audio player."
 	echo "**"
-	echo "**  1. You will need a Raspberry Pi running Raspbian with SSH"
+	echo "**  1. You will need a Raspberry Pi running RaspiOS with SSH"
 	echo "**  enabled and at least 2.5 GB free space on the boot SDCard."
 	echo "**"
 	echo "**  2. The build can be written directly to the boot SDCard or"
 	echo "**  to a second USB-SDCard plugged into the Raspberry Pi."
 	echo "**"
-	echo "**  WARNING: Raspbian Stretch Lite 2018-11-13 must be used if"
+	echo "**  WARNING: RaspiOS Buster Lite 2020-05-27 must be used if"
 	echo "**  building directly on the boot SDCard. It must be a fresh,"
 	echo "**  unmodified installation of Stretch Lite otherwise the build"
 	echo "**  results cannot be guaranteed."
@@ -291,7 +291,7 @@ configWireless() {
 	PSK="$STR"
 }
 useWireless () {
-	readYnInput "** Option $((IDXOPT++))-$NUMOPT: use a WiFi connection instead of Ethernet (y/n)? "
+	readYnInput "** Option $((IDXOPT++))-$NUMOPT: use WiFi instead of Ethernet for the build (y/n)? "
 	if [ $YN = "y" ] ; then
 		if isConnected && [ -f /etc/wpa_supplicant/wpa_supplicant.conf ] ; then
 			SSID=`awk '(/^/||/ /) && /ssid=\"/' /etc/wpa_supplicant/wpa_supplicant.conf | sed -e 's/^[ \t]*//;s/ssid=\"\(.*\)\"/\1/'`
@@ -397,7 +397,7 @@ loadEnv () {
 
 dnldRaspbian () {
 	local RASPBIAN_ZIP=`echo $RASPBIAN_DNLD | awk -F"/" '{ print $NF }'`
-	echo "** Download Rasbian Lite $RASPBIAN_ZIP"
+	echo "** Download RaspiOS Lite $RASPBIAN_ZIP"
 	cd mosbuild
 	wget -q --show-progress $RASPBIAN_DNLD -O $RASPBIAN_ZIP
 	if [ $? -ne 0 ] ; then
@@ -422,7 +422,7 @@ unzipRaspbian () {
 }
 
 mountImage () {
-	echo "** Mount Raspbian partitions"
+	echo "** Mount RaspiOS partitions"
 	mkdir part1
 	mkdir part2
 	LOOPDEV=$(sudo losetup -f)
