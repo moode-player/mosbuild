@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2020-07-09 TC moOde 6.6.0
+# 2020-07-19 TC moOde 6.7.0
 #
 
-VER="v2.22"
+VER="v2.23"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
