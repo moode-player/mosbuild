@@ -485,6 +485,7 @@ STEP_5_6 () {
 	cp ./moode/mpd/mpd.conf.default /etc/mpd.conf
 	chown mpd:audio /etc/mpd.conf
 	chmod 0666 /etc/mpd.conf
+	echo -e "**/*.cue\n**/*.CUE" >/var/lib/mpd/music/.mpdignore
 	echo "** Set permissions for D-Bus (for bluez-alsa)"
 	usermod -a -G audio mpd
 
