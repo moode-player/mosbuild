@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2020-07-22 TC moOde 6.7.1
+# 2020-12-15 TC moOde 7.0.0
 #
 
-VER="v2.25"
+VER="v2.26"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -102,6 +102,12 @@ STEP_2 () {
 		cancelBuild "** Error: unzip failed"
 	fi
 
+	echo "** Extract boot moodecfg.ini.default"
+	unzip -p -q $MOODE_REL_ZIP moode/boot/moodecfg.ini.default > ./moodecfg.ini.default
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: unzip failed"
+	fi
+
     if [ -z "$DIRECT" ] || [ `df -k --output=size / | tail -1` -lt 2500000 ] ; then
 	  echo "** Expand SDCard to 3.5GB"
 	  chmod 0755 ./resizefs.sh
@@ -111,6 +117,9 @@ STEP_2 () {
 
 	echo "** Install boot/config.txt"
 	cp ./config.txt.default /boot/config.txt
+
+	echo "** Install boot/moodecfg.ini.default"
+	cp ./moodecfg.ini.default /boot/
 
 	echo "** Reboot 1"
 	echo "3A" > $MOSBUILD_STEP
@@ -204,7 +213,8 @@ STEP_3B_4 () {
 	DEBIAN_FRONTEND=noninteractive apt-get -y install rpi-update php-fpm nginx sqlite3 php-sqlite3 php7.3-gd mpc \
 		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools shellinabox samba smbclient ntfs-3g \
 		exfat-fuse git inotify-tools ffmpeg avahi-utils ninja-build python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-6a \
-		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged python3-pip xfsprogs triggerhappy zip id3v2
+		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged python3-pip xfsprogs triggerhappy zip id3v2 \
+		cmake dos2unix
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi
@@ -215,16 +225,16 @@ STEP_3B_4 () {
 	fi
 
 	echo "** Install meson"
-	cp ./moode/other/mpd/build-tools/meson-0.50.1.tar.gz ./
-	tar xfz meson-0.50.1.tar.gz
-	cd meson-0.50.1
+	cp ./moode/other/meson-ninja/meson-0.55.0.tar.gz ./
+	tar xfz meson-0.55.0.tar.gz
+	cd meson-0.55.0
 	python3 setup.py install
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi
 
 	cd ..
-	rm -rf meson-0.50.1*
+	rm -rf meson-0.55.0*
 
 	DEBIAN_FRONTEND=noninteractive apt-get clean
 	if [ $? -ne 0 ] ; then
@@ -334,11 +344,10 @@ STEP_3B_4 () {
 	ln -s /usr/libexec/bluetooth/bluetoothd /usr/sbin/bluetoothd
 
 	echo "** Compile bluez-alsa"
-	# Compile bluez-alsa 2.1.0-49ad348
-	# 2019-10-27 commit 49ad348808a15485aa7cb2df0a4d13654cc0cee3
-	cp ./moode/other/bluetooth/bluez-alsa-master-2.1.0-49ad348.zip ./
-	unzip -q bluez-alsa-master-2.1.0-49ad348.zip
-	cd bluez-alsa-master
+	# Compile bluez-alsa 3.0.0
+	cp ./moode/other/bluetooth/bluez-alsa-3.0.0.zip ./
+	unzip -q bluez-alsa-3.0.0.zip
+	cd bluez-alsa-3.0.0
 	echo "** NOTE: Ignore warnings from autoreconf and configure"
 	autoreconf --install
 	mkdir build
@@ -359,7 +368,7 @@ STEP_3B_4 () {
 	fi
 
 	cd ../..
-	rm -rf ./bluez-alsa-master*
+	rm -rf ./bluez-alsa-3.0.0
 
 	echo "** Check for default bluealsa.service file"
 	if [ ! -f /lib/systemd/system/bluealsa.service ] ; then
@@ -464,7 +473,7 @@ STEP_5_6 () {
 	echo
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
-	echo "// STEP 6 - Install MPD"
+	echo "// STEP 6 - Install MPD and MPC"
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo
@@ -514,7 +523,8 @@ STEP_5_6 () {
 	libvorbis-dev \
 	libwavpack-dev \
 	libwrap0-dev \
-	libzzip-dev
+	libzzip-dev \
+	libpcre++-dev
 
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: install failed"
@@ -532,8 +542,10 @@ STEP_5_6 () {
 		cancelBuild "** Error: install failed"
 	fi
 
-	echo "** Install pre-compiled binary"
+	echo "** Install pre-compiled MPD binary"
 	cp ./moode/other/mpd/$MPD_BIN /usr/local/bin/mpd
+	echo "** Install pre-compiled MPC binary"
+	cp ./moode/other/mpd/$MPC_BIN /usr/bin/mpc
 
 	echo "** Cleanup"
 	DEBIAN_FRONTEND=noninteractive apt-get clean
@@ -624,6 +636,8 @@ STEP_7_8 () {
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
+	LIBCACHE_BASE=/var/local/www/libcache
+
 	echo "** Install application sources and configs"
 	rm /var/lib/mpd/music/RADIO/* 2> /dev/null
 	rm -rf /var/www/images/radio-logos/ 2> /dev/null
@@ -661,7 +675,7 @@ STEP_7_8 () {
 	echo "Localui"
 	chmod 0644 /lib/systemd/system/localui.service
 	echo "SSH term server"
-	sudo chmod 0644 /lib/systemd/system/shellinabox.service
+	chmod 0644 /lib/systemd/system/shellinabox.service
 
 	echo "** Services are started by moOde Worker so lets disable them here"
 	systemctl daemon-reload
@@ -685,8 +699,15 @@ STEP_7_8 () {
 	echo "** Initial permissions for certain files. These also get set during moOde Worker startup"
 	chmod 0777 /var/local/www/playhistory.log
 	chmod 0777 /var/local/www/currentsong.txt
-	touch /var/local/www/libcache.json
-	chmod 0777 /var/local/www/libcache.json
+	touch $LIBCACHE_BASE"_all.json"
+	touch $LIBCACHE_BASE"_folder.json"
+	touch $LIBCACHE_BASE"_format.json"
+	touch $LIBCACHE_BASE"_lossless.json"
+	touch $LIBCACHE_BASE"_lossy.json"
+	chmod 0777 $LIBCACHE_BASE"_*"
+
+	echo "** Permission for the 010_moode file"
+	chmod 0440 /etc/sudoers.d/010_moode
 
 	echo "** Re-establish image build autorun in rc.local"
 	sed -i "s/^exit.*//" /etc/rc.local
@@ -718,7 +739,7 @@ STEP_9_10 () {
 	echo
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
-	echo "// STEP 9 - Alsaequal"
+	echo "// STEP 9a - Alsaequal and EqFa12p"
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo
@@ -729,8 +750,11 @@ STEP_9_10 () {
 	echo "** Establish permissions"
 	chmod 0755 /usr/local/bin/alsaequal.bin
 	chown mpd:audio /usr/local/bin/alsaequal.bin
-	#rm /usr/share/alsa/alsa.conf.d/equal.conf
 	rm /etc/alsa/alsa.conf.d/equal.conf
+
+	echo "** Install pre-compiled EqFa12p"
+	cp ./moode/other/bitlab/caps/caps.so /usr/lib/ladspa/
+	cp ./moode/other/bitlab/caps/caps.rdf /usr/share/ladspa/rdf/
 
 	echo "** Wait 45 secs for moOde Startup to complete"
 	sleep 45
@@ -740,7 +764,23 @@ STEP_9_10 () {
 	echo "** Enable only output 1"
 	mpc enable only 1
 
-	echo "** Alsaequal installed"
+	echo "** Alsaequal and EqFa12p installed"
+
+	echo
+	echo "////////////////////////////////////////////////////////////////"
+	echo "//"
+	echo "// STEP 9b - Camilladsp and alsa_cdsp"
+	echo "// NOTE: See readme.txt in other/camilladsp for more info"
+	echo "//"
+	echo "////////////////////////////////////////////////////////////////"
+	echo
+
+	echo "** Install pre-compiled camilladsp"
+	cp ./moode/other/camilladsp/camilladsp /usr/local/bin/
+	chmod a+x /usr/local/bin/camilladsp
+
+	echo "** Install pre-compiled cdsp.so"
+	install -m 644 ./moode/other/alsa_cdsp/libasound_module_pcm_cdsp.so `pkg-config --variable=libdir alsa`
 
 	if [ -z "$SQUASH_FS" ] ; then
 		echo "** STEP 10 - Squashfs option not selected"
@@ -797,43 +837,41 @@ STEP_11 () {
 		    rm -rf /boot.bak
 			DEBIAN_FRONTEND=noninteractive apt-get clean
 
-			echo "** Install Edimax EW-7811Un fix"
-			mv /etc/modprobe.d/blacklist-rtl8192cu.conf /etc/modprobe.d/blacklist-rtl8192cu.conf.delete
-
 			echo "** Install drivers for Allo USBridge Signature"
-			echo "** 32-bit drivers"
-			# WiFi driver (MrEngman stock)
-			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/8812au.ko /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/wireless
-			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/8812au.conf /etc/modprobe.d/
+			echo "** Install WiFi driver (Comfast CF-912AC, MrEngman stock)"
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER/8812au.ko-v7+ /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/wireless/8812au.ko
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER/8812au.ko-v7l+ /lib/modules/$KERNEL_VER-v7l+/kernel/drivers/net/wireless/8812au.ko
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER/8812au.ko-v8+ /lib/modules/$KERNEL_VER-v8+/kernel/drivers/net/wireless/8812au.ko
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER/8812au.conf /etc/modprobe.d/
 			chmod 0644 /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/wireless/8812au.ko
-			chmod 0644 /etc/modprobe.d/*.conf
-			# Eth/USB driver v2.0.0 (Allo enhanced)
-			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v7+/ax88179_178a.ko /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/usb
-
-			echo "** Depmod"
-			depmod $KERNEL_VER-v7+
-			if [ $? -ne 0 ] ; then
-				cancelBuild "** Error: depmod failed"
-			fi
-
-			echo "** 64-bit drivers"
-			# NOTE uses same /etc/modprobe.d/8812au.conf as 32-bit driver
-			# WiFi driver (MrEngman stock)
-			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v8+/8812au.ko /lib/modules/$KERNEL_VER-v8+/kernel/drivers/net/wireless
+			chmod 0644 /lib/modules/$KERNEL_VER-v7l+/kernel/drivers/net/wireless/8812au.ko
 			chmod 0644 /lib/modules/$KERNEL_VER-v8+/kernel/drivers/net/wireless/8812au.ko
-			# Eth/USB driver v2.0.0 (Allo enhanced)
-			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER-v8+/ax88179_178a.ko /lib/modules/$KERNEL_VER-v8+/kernel/drivers/net/usb
+			chmod 0644 /etc/modprobe.d/*.conf
+			echo "** Install Eth/USB driver v2.0.0 (Allo enhanced)"
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER/ax88179_178a.ko-v7+ /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/usb/ax88179_178a.ko
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER/ax88179_178a.ko-v7l+ /lib/modules/$KERNEL_VER-v7l+/kernel/drivers/net/usb/ax88179_178a.ko
+			cp ./moode/other/allo/usbridge_sig/$KERNEL_VER/ax88179_178a.ko-v8+ /lib/modules/$KERNEL_VER-v8+/kernel/drivers/net/usb/ax88179_178a.ko
+			chmod 0644 /lib/modules/$KERNEL_VER-v7+/kernel/drivers/net/usb/ax88179_178a.ko
+			chmod 0644 /lib/modules/$KERNEL_VER-v7l+/kernel/drivers/net/usb/ax88179_178a.ko
+			chmod 0644 /lib/modules/$KERNEL_VER-v8+/kernel/drivers/net/usb/ax88179_178a.ko
 
-			echo "** Depmod"
+			echo "** Install @bitlab enhanced pcm1794a 384K codec"
+			cp ./moode/other/bitlab/pcm1794a/$KERNEL_VER/snd-soc-pcm1794a.ko-v7+ /lib/modules/$KERNEL_VER-v7+/kernel/sound/soc/codecs/snd-soc-pcm1794a.ko
+			cp ./moode/other/bitlab/pcm1794a/$KERNEL_VER/snd-soc-pcm1794a.ko-v7l+ /lib/modules/$KERNEL_VER-v7l+/kernel/sound/soc/codecs/snd-soc-pcm1794a.ko
+			cp ./moode/other/bitlab/pcm1794a/$KERNEL_VER/snd-soc-pcm1794a.ko-v8+ /lib/modules/$KERNEL_VER-v8+/kernel/sound/soc/codecs/snd-soc-pcm1794a.ko
+			chmod 0644 /lib/modules/$KERNEL_VER-v7+/kernel/sound/soc/codecs/snd-soc-pcm1794a.ko
+			chmod 0644 /lib/modules/$KEKERNEL_VERRNEL-v7l+/kernel/sound/soc/codecs/snd-soc-pcm1794a.ko
+			chmod 0644 /lib/modules/$KERNEL_VER-v8+/kernel/sound/soc/codecs/snd-soc-pcm1794a.ko
+
+			echo "** Depmod $KERNEL_VER-v7+"
+			depmod $KERNEL-v7+
+			echo "** Depmod $KERNEL_VER-v7l+"
+			depmod $KERNEL-v7l+
+			echo "** Depmod $KERNEL_VER-v8+"
 			depmod $KERNEL_VER-v8+
-			if [ $? -ne 0 ] ; then
-				cancelBuild "** Error: depmod failed"
-			fi
 
 			echo "** Reboot 7"
 			echo "12-13" > $MOSBUILD_STEP
-			#echo "Fix for missing 4.19.y regulatory.db files"
-			#sudo cp ./moode/other/firmware/regulatory.db* /lib/firmware
 			sync
 			reboot
 		fi
@@ -951,7 +989,7 @@ COMP_C1_C7 () {
 	fi
 
 	echo "** Install newer pre-compiled binary"
-	cp ./moode/other/minidlna/$MINIDLNA_BIN /usr/sbin/minidlnad
+	mv ./moode/other/minidlna/$MINIDLNA_BIN /usr/sbin/minidlnad
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -964,7 +1002,7 @@ COMP_C1_C7 () {
 	cd $MOSBUILD_DIR
 
 	echo "** Install pre-compiled binary"
-	cp ./moode/other/ashuffle/ashuffle /usr/local/bin
+	cp ./moode/other/ashuffle/$ASHUFFLE_BIN /usr/local/bin/ashuffle
 
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
@@ -973,33 +1011,12 @@ COMP_C1_C7 () {
 	echo
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
-	echo "// COMPONENT 3 - MPD Audio Scrobbler"
+	echo "// COMPONENT 3 - Reserved for future use"
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
 	cd $MOSBUILD_DIR
-
-	echo "** Build MPDAS"
-	git clone https://github.com/hrkfdn/mpdas
-	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Git clone failed"
-	fi
-
-	cd $MOSBUILD_DIR/mpdas
-	make
-	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Make failed"
-	fi
-
-	echo "** Install binary"
-	cp ./mpdas /usr/local/bin
-	cd ..
-	rm -rf ./mpdas
-
-	echo "** Install conf file"
-	cp ./moode/usr/local/etc/mpdasrc.default /usr/local/etc/mpdasrc
-	chmod 0755 /usr/local/etc/mpdasrc
 
 	echo
 	echo "////////////////////////////////////////////////////////////////"
@@ -1082,12 +1099,12 @@ COMP_C1_C7 () {
 	fi
 
 	echo "** Compile Libnpupnp 4.0.6"
-	cp ./moode/other/upmpdcli/libnpupnp-4.0.6.tar.gz ./
-	tar xfz ./libnpupnp-4.0.6.tar.gz
+	cp ./moode/other/upmpdcli/libnpupnp-4.0.14.tar.gz ./
+	tar xfz ./libnpupnp-4.0.14.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
-	cd libnpupnp-4.0.6
+	cd libnpupnp-4.0.14
 	./configure --prefix=/usr --sysconfdir=/etc
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Configure failed"
@@ -1102,16 +1119,15 @@ COMP_C1_C7 () {
 	fi
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./libnpupnp-4.0.6
-	rm libnpupnp-4.0.6.tar.gz
+	rm -rf ./libnpupnp-4.0.14*
 
-	echo "** Compile Libupnpp 0.19.1"
-	cp ./moode/other/upmpdcli/libupnpp-0.19.1.tar.gz ./
-	tar xfz ./libupnpp-0.19.1.tar.gz
+	echo "** Compile Libupnpp 0.20.0"
+	cp ./moode/other/upmpdcli/libupnpp-0.20.0.tar.gz ./
+	tar xfz ./libupnpp-0.20.0.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
-	cd libupnpp-0.19.1
+	cd libupnpp-0.20.0
 	./configure --prefix=/usr --sysconfdir=/etc
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Configure failed"
@@ -1126,16 +1142,15 @@ COMP_C1_C7 () {
 	fi
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./libupnpp-0.19.1
-	rm libupnpp-0.19.1.tar.gz
+	rm -rf ./libupnpp-0.20.0*
 
-	echo "** Compile Upmpdcli 1.4.12-7ea91f5d"
-	cp ./moode/other/upmpdcli/upmpdcli-1.4.12-master-7ea91f5d.tar.gz ./
-	tar xfz ./upmpdcli-1.4.12-master-7ea91f5d.tar.gz
+	echo "** Compile Upmpdcli 1.5.1"
+	cp ./moode/other/upmpdcli/upmpdcli-1.5.1.tar.gz ./
+	tar xfz ./upmpdcli-1.5.1.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
-	cd upmpdcli-master
+	cd upmpdcli-1.5.1
 	./autogen.sh
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Autogen failed"
@@ -1154,8 +1169,7 @@ COMP_C1_C7 () {
 	fi
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./upmpdcli-master
-	rm upmpdcli-1.4.12-master-7ea91f5d.tar.gz
+	rm -rf ./upmpdcli-1.5.1*
 
 	echo "** Configure runtime env"
 	useradd upmpdcli
@@ -1188,27 +1202,11 @@ COMP_C1_C7 () {
 
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./libupnpp-samples-master
-	rm ./libupnpp-samples-master.zip
+	rm -rf ./libupnpp-samples-master*
 	DEBIAN_FRONTEND=noninteractive apt-get clean
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Cleanup failed"
 	fi
-
-	echo "** Patch for upmpdcli gmusic plugin"
-	cp ./moode/other/upmpdcli/session.py /usr/share/upmpdcli/cdplugins/gmusic
-
-	echo
-	echo "////////////////////////////////////////////////////////////////"
-	echo "//"
-	echo "// COMPONENT 7 - Optionally install gmusicapi"
-	echo "//"
-	echo "////////////////////////////////////////////////////////////////"
-	echo
-
-	echo "This component enables access to Google Play Music service via UPnP renderer."
-	echo "If its not installed, the Google Play section in UPnP config screen will not be present."
-	echo "sudo pip install gmusicapi"
 
 	echo "** Reboot 9"
 	echo "C8_C9" > $MOSBUILD_STEP
