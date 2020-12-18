@@ -10,7 +10,7 @@ A typical Build takes around 1 hour and during that time the Pi will automatical
 
 # Build requirements
 
-If using the direct build method then boot a Raspberry Pi running [RaspiOS Buster Lite release 2020-05-27](http://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2020-05-28/2020-05-27-raspios-buster-lite-armhf.zip). No other release is guaranteed to work. If using a second USB-SDCard for the Build then make sure its not plugged into the Pi prior to starting the Build.
+If using the direct build method then boot a Raspberry Pi running [RaspiOS Buster Lite release 2020-12-02](http://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2020-12-04/2020-12-02-raspios-buster-armhf-lite.zip). No other release is guaranteed to work. If using a second USB-SDCard for the Build then make sure its not plugged into the Pi prior to starting the Build.
 
 ## Download the Builder script
 
