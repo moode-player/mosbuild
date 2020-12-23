@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2020-12-15 TC moOde 7.0.0
+# 2020-12-23 TC moOde 7.0.1
 #
 #
 
-VER="v2.26"
+VER="v2.27"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment
@@ -75,7 +75,7 @@ mainBanner () {
 	echo "**  2. The build can be written directly to the boot SDCard or"
 	echo "**  to a second USB-SDCard plugged into the Raspberry Pi."
 	echo "**"
-	echo "**  WARNING: RaspiOS Buster Lite 2020-05-27 must be used if"
+	echo "**  WARNING: RaspiOS Buster Lite 2020-12-02 must be used if"
 	echo "**  building directly on the boot SDCard. It must be a fresh,"
 	echo "**  unmodified installation of Stretch Lite otherwise the build"
 	echo "**  results cannot be guaranteed."

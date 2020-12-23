@@ -15,10 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2020-12-15 TC moOde 7.0.0
+# 2020-12-23 TC moOde 7.0.1
 #
 
-VER="v2.26"
+VER="v2.27"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -780,7 +780,7 @@ STEP_9_10 () {
 	chmod a+x /usr/local/bin/camilladsp
 
 	echo "** Install pre-compiled cdsp.so"
-	install -m 644 ./moode/other/alsa_cdsp/libasound_module_pcm_cdsp.so `pkg-config --variable=libdir alsa`
+	install -m 644 ./moode/other/alsa_cdsp/libasound_module_pcm_cdsp.so `pkg-config --variable=libdir alsa`/alsa-lib/
 
 	if [ -z "$SQUASH_FS" ] ; then
 		echo "** STEP 10 - Squashfs option not selected"
