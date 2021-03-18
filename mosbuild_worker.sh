@@ -15,10 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# 2020-12-23 TC moOde 7.0.1
 #
 
-VER="v2.27"
+VER="v2.28"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
@@ -64,7 +63,7 @@ STEP_2 () {
 	  echo
 	  echo "////////////////////////////////////////////////////////////////"
 	  echo "//"
-	  echo "// STEP 2 - Expand the root partition to 3.5GB"
+	  echo "// STEP 2 - Expand the root partition to 4GB"
 	  echo "//"
 	  echo "////////////////////////////////////////////////////////////////"
 	  echo
@@ -109,9 +108,9 @@ STEP_2 () {
 	fi
 
     if [ -z "$DIRECT" ] || [ `df -k --output=size / | tail -1` -lt 2500000 ] ; then
-	  echo "** Expand SDCard to 3.5GB"
+	  echo "** Expand SDCard to 4.0GB"
 	  chmod 0755 ./resizefs.sh
-	  sed -i "/PART_END=/c\PART_END=+3500M" ./resizefs.sh
+	  sed -i "/PART_END=/c\PART_END=+4000M" ./resizefs.sh
 	  ./resizefs.sh start
     fi
 
@@ -214,7 +213,7 @@ STEP_3B_4 () {
 		bs2b-ladspa libbs2b0 libasound2-plugin-equal telnet automake sysstat squashfs-tools shellinabox samba smbclient ntfs-3g \
 		exfat-fuse git inotify-tools ffmpeg avahi-utils ninja-build python3-setuptools libmediainfo0v5 libmms0 libtinyxml2-6a \
 		libzen0v5 libmediainfo-dev libzen-dev winbind libnss-winbind djmount haveged python3-pip xfsprogs triggerhappy zip id3v2 \
-		cmake dos2unix
+		cmake dos2unix php-yaml sox flac nmap
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Install failed"
 	fi
@@ -650,7 +649,7 @@ STEP_7_8 () {
 	cp -r ./moode/lib/* /lib
 	cp -r ./moode/usr/* /usr
 	cp -r ./moode/var/* /var
-	cp -r ./moode/www/* /var/www
+	cp -r ./moode/build/distr/var/www/* /var/www
 	chmod 0755 /home/pi/*.sh
 	#chmod 0755 /home/pi/*.php
 	chmod 0755 /var/www/command/*
@@ -769,18 +768,25 @@ STEP_9_10 () {
 	echo
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
-	echo "// STEP 9b - Camilladsp and alsa_cdsp"
+	echo "// STEP 9b - CamillaDSP, CamillaGUI and alsa_cdsp"
 	echo "// NOTE: See readme.txt in other/camilladsp for more info"
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
-	echo "** Install pre-compiled camilladsp"
+	echo "** Install pre-compiled camillaDSP"
 	cp ./moode/other/camilladsp/camilladsp /usr/local/bin/
 	chmod a+x /usr/local/bin/camilladsp
 
 	echo "** Install pre-compiled cdsp.so"
 	install -m 644 ./moode/other/alsa_cdsp/libasound_module_pcm_cdsp.so `pkg-config --variable=libdir alsa`/alsa-lib/
+
+	echo "** Install CamillaGUI"
+	sudo cp -r ./moode/other/camilladsp/gui/ ./
+	cd ./gui
+	./_install.sh
+	cd ..
+	rm -rf ./gui
 
 	if [ -z "$SQUASH_FS" ] ; then
 		echo "** STEP 10 - Squashfs option not selected"
@@ -976,8 +982,8 @@ COMP_C1_C7 () {
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
-	echo "** Install MiniDLNA package to get all the parts"
-	DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install minidlna
+	echo "** Install miniDLNA dev libs"
+	apt-get -y install libjpeg-dev libsqlite3-dev libexif-dev
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: install failed"
 	fi
@@ -988,7 +994,7 @@ COMP_C1_C7 () {
 		cancelBuild "** Error: Disable failed"
 	fi
 
-	echo "** Install newer pre-compiled binary"
+	echo "** Install pre-compiled binary"
 	mv ./moode/other/minidlna/$MINIDLNA_BIN /usr/sbin/minidlnad
 
 	echo
@@ -1095,10 +1101,10 @@ COMP_C1_C7 () {
 	DEBIAN_FRONTEND=noninteractive apt-get -y install libmicrohttpd-dev libexpat1-dev \
 	libxml2-dev libxslt1-dev libjsoncpp-dev python-requests python-pip
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: install failed"
+		cancelBuild "** Error: Install failed"
 	fi
 
-	echo "** Compile Libnpupnp 4.0.6"
+	echo "** Compile Libnpupnp 4.0.14"
 	cp ./moode/other/upmpdcli/libnpupnp-4.0.14.tar.gz ./
 	tar xfz ./libnpupnp-4.0.14.tar.gz
 	if [ $? -ne 0 ] ; then
@@ -1115,19 +1121,19 @@ COMP_C1_C7 () {
 	fi
 	make install
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: install failed"
+		cancelBuild "** Error: Install failed"
 	fi
 	echo "** Cleanup"
 	cd ..
 	rm -rf ./libnpupnp-4.0.14*
 
-	echo "** Compile Libupnpp 0.20.0"
-	cp ./moode/other/upmpdcli/libupnpp-0.20.0.tar.gz ./
-	tar xfz ./libupnpp-0.20.0.tar.gz
+	echo "** Compile Libupnpp 0.20.1"
+	cp ./moode/other/upmpdcli/libupnpp-0.20.1.tar.gz ./
+	tar xfz ./libupnpp-0.20.1.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
-	cd libupnpp-0.20.0
+	cd libupnpp-0.20.1
 	./configure --prefix=/usr --sysconfdir=/etc
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Configure failed"
@@ -1138,19 +1144,19 @@ COMP_C1_C7 () {
 	fi
 	make install
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: install failed"
+		cancelBuild "** Error: Install failed"
 	fi
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./libupnpp-0.20.0*
+	rm -rf ./libupnpp-0.20.1*
 
-	echo "** Compile Upmpdcli 1.5.1"
-	cp ./moode/other/upmpdcli/upmpdcli-1.5.1.tar.gz ./
-	tar xfz ./upmpdcli-1.5.1.tar.gz
+	echo "** Compile Upmpdcli 1.5.8"
+	cp ./moode/other/upmpdcli/upmpdcli-1.5.8.tar.gz ./
+	tar xfz ./upmpdcli-1.5.8.tar.gz
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Un-tar failed"
 	fi
-	cd upmpdcli-1.5.1
+	cd upmpdcli-1.5.8
 	./autogen.sh
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Autogen failed"
@@ -1165,11 +1171,11 @@ COMP_C1_C7 () {
 	fi
 	make install
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: install failed"
+		cancelBuild "** Error: Install failed"
 	fi
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./upmpdcli-1.5.1*
+	rm -rf ./upmpdcli-1.5.8*
 
 	echo "** Configure runtime env"
 	useradd upmpdcli
@@ -1179,15 +1185,15 @@ COMP_C1_C7 () {
 	systemctl daemon-reload
 	systemctl disable upmpdcli
 
-	echo "** Compile Upexplorer"
-	cp ./moode/other/upmpdcli/libupnpp-samples-master.zip ./
-	unzip -q ./libupnpp-samples-master.zip
-	cd ./libupnpp-samples-master
-	./autogen.sh
+	echo "** Compile python3-libupnpp"
+
+	cp ./moode/other/upmpdcli/libupnpp-bindings-0.20.1.tar.gz ./
+	tar xfz libupnpp-bindings-0.20.1.tar.gz
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Autogen failed"
+		cancelBuild "** Error: Un-tar failed"
 	fi
-	./configure
+	cd libupnpp-bindings-0.20.1
+	./configure --prefix=/usr PYTHON_VERSION=3
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Configure failed"
 	fi
@@ -1195,18 +1201,13 @@ COMP_C1_C7 () {
 	if [ $? -ne 0 ] ; then
 		cancelBuild "** Error: Make failed"
 	fi
-	make install
+	sudo make install
 	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: install failed"
+		cancelBuild "** Error: Install failed"
 	fi
-
 	echo "** Cleanup"
 	cd ..
-	rm -rf ./libupnpp-samples-master*
-	DEBIAN_FRONTEND=noninteractive apt-get clean
-	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Cleanup failed"
-	fi
+	rm -rf ./libupnpp-bindings-0.20.1*
 
 	echo "** Reboot 9"
 	echo "C8_C9" > $MOSBUILD_STEP
@@ -1279,6 +1280,44 @@ COMP_C8_C9 () {
 	cp -r ./piano-firmware-master/lib/firmware/allo /lib/firmware
 	rm ./master.zip
 	rm -rf ./piano-firmware-master
+
+	echo
+	echo "////////////////////////////////////////////////////////////////"
+	echo "//"
+	echo "// COMPONENT 10 - Allo Boss 2 OLED display"
+	echo "//"
+	echo "////////////////////////////////////////////////////////////////"
+	echo
+
+	cd $MOSBUILD_DIR
+
+	echo "Install Python libs"
+	apt-get -y install python-smbus python-pil
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Install failed"
+	fi
+	apt-get clean
+	echo "Install Display driver"
+	cp ./moode/other/allo/boss2/boss2_oled.tar.gz /opt/
+	cd /opt/
+	tar -xzf ./boss2_oled.tar.gz
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Install failed"
+	fi
+	rm ./boss2_oled.tar.gz
+	cd ~
+	echo "Install Systemd unit"
+	cp ./moode/lib/systemd/system/boss2oled.service /lib/systemd/system/
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Install failed"
+	fi
+	systemctl daemon-reload
+	systemctl disable boss2oled.service
+	echo "Install Etc modules"
+	cp ./moode/etc/modules /etc/modules
+	if [ $? -ne 0 ] ; then
+		cancelBuild "** Error: Install failed"
+	fi
 
 	finalCleanup
 }
