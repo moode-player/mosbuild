@@ -1305,7 +1305,9 @@ COMP_C8_C9 () {
 		cancelBuild "** Error: Install failed"
 	fi
 	rm ./boss2_oled.tar.gz
-	cd ~
+	
+	cd $MOSBUILD_DIR
+	
 	echo "Install Systemd unit"
 	cp ./moode/lib/systemd/system/boss2oled.service /lib/systemd/system/
 	if [ $? -ne 0 ] ; then
