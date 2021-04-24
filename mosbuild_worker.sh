@@ -869,6 +869,14 @@ STEP_11 () {
 			chmod 0644 /lib/modules/$KEKERNEL_VERRNEL-v7l+/kernel/sound/soc/codecs/snd-soc-pcm1794a.ko
 			chmod 0644 /lib/modules/$KERNEL_VER-v8+/kernel/sound/soc/codecs/snd-soc-pcm1794a.ko
 
+			echo "** Install @bitlab enhanced aloop 384K driver"
+			cp ./moode/other/bitlab/aloop/$KERNEL/snd-aloop.ko-v7+ /lib/modules/$KERNEL-v7+/kernel/sound/drivers/snd-aloop.ko
+			cp ./moode/other/bitlab/aloop/$KERNEL/snd-aloop.ko-v7l+ /lib/modules/$KERNEL-v7l+/kernel/sound/drivers/snd-aloop.ko
+			cp ./moode/other/bitlab/aloop/$KERNEL/snd-aloop.ko-v8+ /lib/modules/$KERNEL-v8+/kernel/sound/drivers/snd-aloop.ko
+			chmod 0644 /lib/modules/$KERNEL-v7+/kernel/sound/drivers/snd-aloop.ko
+			chmod 0644 /lib/modules/$KERNEL-v7l+/kernel/sound/drivers/snd-aloop.ko
+			chmod 0644 /lib/modules/$KERNEL-v8+/kernel/sound/drivers/snd-aloop.ko
+
 			echo "** Depmod $KERNEL_VER-v7+"
 			depmod $KERNEL-v7+
 			echo "** Depmod $KERNEL_VER-v7l+"
@@ -1305,9 +1313,9 @@ COMP_C8_C9 () {
 		cancelBuild "** Error: Install failed"
 	fi
 	rm ./boss2_oled.tar.gz
-	
+
 	cd $MOSBUILD_DIR
-	
+
 	echo "Install Systemd unit"
 	cp ./moode/lib/systemd/system/boss2oled.service /lib/systemd/system/
 	if [ $? -ne 0 ] ; then
@@ -1315,11 +1323,6 @@ COMP_C8_C9 () {
 	fi
 	systemctl daemon-reload
 	systemctl disable boss2oled.service
-	echo "Install Etc modules"
-	cp ./moode/etc/modules /etc/modules
-	if [ $? -ne 0 ] ; then
-		cancelBuild "** Error: Install failed"
-	fi
 
 	finalCleanup
 }
