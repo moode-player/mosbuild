@@ -17,7 +17,7 @@
 #
 #
 
-VER="v2.29"
+VER="v2.30"
 DOWNLOAD_URL="http://moodeaudio.org/downloads/mos"
 
 # check environment
