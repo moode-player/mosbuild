@@ -769,24 +769,19 @@ STEP_9_10 () {
 	echo "////////////////////////////////////////////////////////////////"
 	echo "//"
 	echo "// STEP 9b - CamillaDSP, CamillaGUI and alsa_cdsp"
-	echo "// NOTE: See readme.txt in other/camilladsp for more info"
+	echo "// NOTE: See buildplan_camilladsp.txt in other/camilladsp for info"
 	echo "//"
 	echo "////////////////////////////////////////////////////////////////"
 	echo
 
-	echo "** Install pre-compiled camillaDSP"
-	cp ./moode/other/camilladsp/camilladsp /usr/local/bin/
-	chmod a+x /usr/local/bin/camilladsp
+	echo "** Install pre-compiled CamillaDSP, CamillaGUI and related"
+	CURR_DIR=`pwd`
+	cd ../camilladsp
+	bash ./_install.txt
+	cd $CURR_DIR
 
 	echo "** Install pre-compiled cdsp.so"
 	install -m 644 ./moode/other/alsa_cdsp/libasound_module_pcm_cdsp.so `pkg-config --variable=libdir alsa`/alsa-lib/
-
-	echo "** Install CamillaGUI"
-	sudo cp -r ./moode/other/camilladsp/gui/ ./
-	cd ./gui
-	./_install.sh
-	cd ..
-	rm -rf ./gui
 
 	if [ -z "$SQUASH_FS" ] ; then
 		echo "** STEP 10 - Squashfs option not selected"
