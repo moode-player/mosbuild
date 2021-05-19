@@ -775,10 +775,9 @@ STEP_9_10 () {
 	echo
 
 	echo "** Install pre-compiled CamillaDSP, CamillaGUI and related"
-	CURR_DIR=`pwd`
-	cd ../camilladsp
+	cd ./moode/other/camilladsp
 	bash ./_install.txt
-	cd $CURR_DIR
+	cd $MOSBUILD_DIR
 
 	echo "** Install pre-compiled cdsp.so"
 	install -m 644 ./moode/other/alsa_cdsp/libasound_module_pcm_cdsp.so `pkg-config --variable=libdir alsa`/alsa-lib/
