@@ -546,6 +546,13 @@ STEP_5_6 () {
 	echo "** Install pre-compiled MPC binary"
 	cp ./moode/other/mpd/$MPC_BIN /usr/bin/mpc
 
+	echo "** Install updated libcurl3 (Fixes instability in this lib shipped in RaspiOS Buster)"
+	cp -r ./moode/other/libcurl3-gnutls/ ./
+	cd ./libcurl3-gnutls/
+	DEBIAN_FRONTEND=noninteractive apt-get -y install ./mpd-libcurl3-gnutls*.deb
+	cd $MOSBUILD_DIR
+	rm -rf libcurl3-gnutls/
+
 	echo "** Cleanup"
 	DEBIAN_FRONTEND=noninteractive apt-get clean
 	if [ $? -ne 0 ] ; then
