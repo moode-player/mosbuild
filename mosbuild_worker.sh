@@ -17,7 +17,7 @@
 #
 #
 
-VER="v2.31"
+VER="v2.32"
 
 # check environment
 [[ $EUID -ne 0 ]] && { echo "*** You must be root to run the script! ***" ; exit 1 ; } ;
